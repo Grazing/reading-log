@@ -11257,15 +11257,20 @@
       return (Math.round((Number(n) || 0) / 1000) / 10).toFixed(1);
     }
     /**
-     * 分期小字「阅读」字数 = 统计模式同月算法：/api/range → totalWords
-     * （语速×该月阅读秒数），不是书籍 wordCount 求和。
+     * 分期小字 = 统计模式同月算法：/api/range
+     * - 阅读字数：totalWords（语速×该月阅读秒数），不是书籍 wordCount 求和
+     * - 总时长：区间阅读秒数合计 → totalMinutes，不是本月各书 book.seconds 求和
+     * - 日均：总分钟 / 该月已过天数（同 statsAvgDivisor / monthElapsedDays）
      */
-    const booksPeriodWordsCache = new Map();
-    let booksPeriodWordsGen = 0;
-    async function fetchPeriodMonthWords(ym) {
+    const booksPeriodRangeCache = new Map();
+    let booksPeriodRangeGen = 0;
+    function emptyPeriodRangeStats() {
+      return { totalWords: 0, totalMinutes: 0 };
+    }
+    async function fetchPeriodMonthRange(ym) {
       const m = String(ym || "").match(/^(\d{4})-(\d{2})$/);
-      if (!m) return 0;
-      if (booksPeriodWordsCache.has(ym)) return booksPeriodWordsCache.get(ym);
+      if (!m) return emptyPeriodRangeStats();
+      if (booksPeriodRangeCache.has(ym)) return booksPeriodRangeCache.get(ym);
       const y = Number(m[1]);
       const mo = Number(m[2]);
       const dim = new Date(y, mo, 0).getDate();
@@ -11273,29 +11278,32 @@
       const to = y + "-" + pad(mo) + "-" + pad(dim);
       try {
         const payload = await api("/api/range?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to));
-        const n = (payload && payload.totalWords != null) ? Number(payload.totalWords) || 0 : 0;
-        booksPeriodWordsCache.set(ym, n);
-        return n;
+        const stats = {
+          totalWords: (payload && payload.totalWords != null) ? Number(payload.totalWords) || 0 : 0,
+          totalMinutes: (payload && payload.totalMinutes != null) ? Number(payload.totalMinutes) || 0 : 0
+        };
+        booksPeriodRangeCache.set(ym, stats);
+        return stats;
       } catch (e) {
-        return 0;
+        return emptyPeriodRangeStats();
       }
     }
-    function booksPeriodStatsText(monthBooks, ym, periodWords) {
-      let totalSec = 0;
+    function booksPeriodStatsText(monthBooks, ym, periodRange) {
       let finished = 0;
       (monthBooks || []).forEach((book) => {
-        totalSec += Number(book.seconds) || 0;
         if (bookIsFinished(book)) finished += 1;
       });
-      const totalM = Math.floor(totalSec / 60);
+      const range = periodRange || (booksPeriodRangeCache.has(ym) ? booksPeriodRangeCache.get(ym) : null) || emptyPeriodRangeStats();
+      const totalM = Math.max(0, Math.floor(Number(range.totalMinutes) || 0));
       let divisor = 1;
       const m = String(ym || "").match(/^(\d{4})-(\d{2})$/);
       if (m) divisor = Math.max(1, monthElapsedDays(Number(m[1]), Number(m[2])));
       const avgM = Math.round(totalM / divisor);
       const gap = "\u00a0\u00a0";
-      return "总时长：" + totalM + " m" + gap
-        + "日均：" + avgM + " m" + gap
-        + "阅读：" + statsWordsWanLabel(periodWords) + " 万字" + gap
+      // 与统计 durationPlain 一致：N小时M分钟 / 仅分钟 / 0分钟
+      return "总时长：" + durationPlain(totalM * 60) + gap
+        + "日均：" + durationPlain(avgM * 60) + gap
+        + "阅读：" + statsWordsWanLabel(range.totalWords) + " 万字" + gap
         + "读完：" + finished + "本";
     }
     /** Preserve visibleBooks order within each month; months newest-first. */
@@ -11346,20 +11354,20 @@
       else booksPeriodCollapsed.delete(ym);
       paintBooksMonthCollapse(head, next);
     }
-    function appendBooksMonthHead(box, ym, monthBooks, periodWords) {
+    function appendBooksMonthHead(box, ym, monthBooks, periodRange) {
       const head = document.createElement("div");
       head.className = "books-month-head";
       head.dataset.month = ym || "";
       const title = ym || "其他";
-      const words = periodWords != null
-        ? periodWords
-        : (booksPeriodWordsCache.has(ym) ? booksPeriodWordsCache.get(ym) : 0);
+      const range = periodRange != null
+        ? periodRange
+        : (booksPeriodRangeCache.has(ym) ? booksPeriodRangeCache.get(ym) : emptyPeriodRangeStats());
       const collapsed = booksPeriodCollapsed.has(ym || "");
       head.innerHTML =
         '<div class="books-month-strip"></div>' +
         '<div class="books-month-title">' + escapeHtml(title) + "</div>" +
         '<div class="books-month-stats-row">' +
-        '<div class="books-month-stats">' + escapeHtml(booksPeriodStatsText(monthBooks, ym, words)) + "</div>" +
+        '<div class="books-month-stats">' + escapeHtml(booksPeriodStatsText(monthBooks, ym, range)) + "</div>" +
         '<button type="button" class="arrow books-month-collapse' + (collapsed ? "" : " open") +
         '" aria-expanded="' + (collapsed ? "false" : "true") + '" title="' +
         (collapsed ? "展开该月卡片" : "收起该月卡片") + '">›</button></div>';
@@ -11513,7 +11521,7 @@
       }
       if (booksPeriodOn) {
         const groups = groupBooksByPeriodMonth(books);
-        const gen = ++booksPeriodWordsGen;
+        const gen = ++booksPeriodRangeGen;
         groups.forEach((group) => {
           const head = appendBooksMonthHead(box, group.key, group.books);
           group.books.forEach((book) => appendBookCardItem(box, book, reopenDetails));
@@ -11524,14 +11532,14 @@
         scheduleBookCoverSizes();
         finishScroll();
         Promise.all(groups.map((group) =>
-          fetchPeriodMonthWords(group.key).then((words) => ({ key: group.key, books: group.books, words: words }))
+          fetchPeriodMonthRange(group.key).then((range) => ({ key: group.key, books: group.books, range: range }))
         )).then((rows) => {
-          if (gen !== booksPeriodWordsGen) return;
+          if (gen !== booksPeriodRangeGen) return;
           rows.forEach((row) => {
             const head = box.querySelector('.books-month-head[data-month="' + String(row.key).replace(/"/g, '\\"') + '"]');
             if (!head) return;
             const stats = head.querySelector(".books-month-stats");
-            if (stats) stats.textContent = booksPeriodStatsText(row.books, row.key, row.words);
+            if (stats) stats.textContent = booksPeriodStatsText(row.books, row.key, row.range);
           });
         }).catch(() => {});
         return;
@@ -15295,14 +15303,14 @@
       bookData = await api("/api/books");
       applyMinuteFilters(bookData);
       bookDetailHtml.clear();
-      booksPeriodWordsCache.clear();
+      booksPeriodRangeCache.clear();
       renderBooks();
       const { st, synced } = await afterSyncStatus(doSync);
       if (synced) {
         bookData = await api("/api/books");
         applyMinuteFilters(bookData);
         bookDetailHtml.clear();
-        booksPeriodWordsCache.clear();
+        booksPeriodRangeCache.clear();
         renderBooks();
       }
       document.getElementById("status").textContent = loginLine(st.weread);

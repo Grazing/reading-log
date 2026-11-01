@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ReadingLog" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:windowBackground">#FCFBF8</item>
+        <item name="android:statusBarColor">#FCFBF8</item>
+        <item name="android:navigationBarColor">#FCFBF8</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:textColor">#564C3D</item>
+    </style>
+</resources>

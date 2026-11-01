@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FCFBF8"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="彩色预览和壁纸。数据在 Mac 上，这里只读取。月历、日志、卡片与 Mac 同一套颜色，不去灰。"
+            android:textColor="#564C3D"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Mac 地址"
+            android:textColor="#564C3D"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/baseUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="http://192.168.x.x:18766"
+            android:inputType="textUri"
+            android:textColor="#564C3D"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/testConnection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="测试连接" />
+
+        <TextView
+            android:id="@+id/testResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#564C3D"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="每隔多少分钟覆盖一次壁纸（0 表示不定时）"
+            android:textColor="#564C3D"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/interval"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:textColor="#564C3D"
+            android:textSize="16sp" />
+
+        <CheckBox
+            android:id="@+id/updateOnLock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="锁屏时更新"
+            android:textColor="#564C3D"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="壁纸宽高用月历页上的倍数和宽×高。生成在后台进行，不会打开书历，也不会放大预览。图片覆盖 Pictures/书历/书历.png；在 HiBreak 上同时写入系统待机图并通知刷新。"
+            android:textColor="#8A7B6C"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="保存" />
+
+        <Button
+            android:id="@+id/generate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="立即生成彩色壁纸" />
+
+        <Button
+            android:id="@+id/grantFiles"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="允许写入壁纸文件" />
+
+        <Button
+            android:id="@+id/grantOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="允许后台生成壁纸" />
+
+        <Button
+            android:id="@+id/grantBattery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="允许后台更新" />
+    </LinearLayout>
+</ScrollView>

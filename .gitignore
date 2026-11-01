@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+dist/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+win/setup/payload.zip

@@ -284,11 +284,11 @@
       cursor: pointer;
     }
     body.compact-ui .preview-matte-tool input[type="range"] { width: 56px; }
-    .cal-tools #calKindPick,
+    .cal-tools #orientPick,
     .cal-tools #wallMonthPick {
       min-width: 72px;
     }
-    .cal-tools #orientPick {
+    .cal-tools #calKindPick {
       min-width: 108px;
     }
     /* Wallpaper period dropdown: keep <select> (many months); paint as pill capsule
@@ -5000,6 +5000,9 @@
       display: flex;
     }
     #orientPick {
+      min-width: 72px;
+    }
+    #calKindPick {
       min-width: 108px;
     }
 
@@ -5975,10 +5978,6 @@
           <button type="button" class="cal-nav" id="prev" title="上个月">‹ 上月</button>
           <div class="month-label cal-nav" id="monthLabel"></div>
           <button type="button" class="cal-nav" id="next" title="下个月">下月 ›</button>
-          <div class="books-slot-pill" id="calKindPick" role="group" title="月历 / 周期" aria-label="月历或周期">
-            <button type="button" data-cal-kind="recent" aria-pressed="false">周期</button>
-            <button type="button" class="on" data-cal-kind="month" aria-pressed="true">月历</button>
-          </div>
         </div>
         <div class="cal-tools-group cal-track-only track-date-tool">
           <input id="trackFrom" type="date" title="开始日期" aria-label="开始日期" />
@@ -6013,7 +6012,7 @@
             </span>
           </label>
         </div>
-        <!-- Own group: same 20px row gap as 周期|月历 ↔ 记录 (not within-group 8px). -->
+        <!-- Own group: 20px row gap vs neighbors (not within-group 8px). -->
         <div class="cal-tools-group">
           <!-- div not label: one <label> wrapping Mag/W/H steals focus to the first
                input on mouseup outside the field (e.g. drag-select then release). -->
@@ -6040,10 +6039,14 @@
               <span class="wall-size-x">%</span>
             </span>
           </label>
-          <div class="books-slot-pill" id="orientPick" role="group" title="版式：横版 / 竖版 / 日志" aria-label="版式">
+          <div class="books-slot-pill" id="calKindPick" role="group" title="视图：日志 / 周期 / 月历" aria-label="日志、周期或月历">
+            <button type="button" data-mode="track" aria-pressed="false">日志</button>
+            <button type="button" data-cal-kind="recent" aria-pressed="false">周期</button>
+            <button type="button" class="on" data-cal-kind="month" aria-pressed="true">月历</button>
+          </div>
+          <div class="books-slot-pill cal-month-only" id="orientPick" role="group" title="版式：横版 / 竖版" aria-label="版式">
             <button type="button" class="on" data-orient="landscape" aria-pressed="true">横版</button>
             <button type="button" data-orient="portrait" aria-pressed="false">竖版</button>
-            <button type="button" data-mode="track" aria-pressed="false">日志</button>
           </div>
           <button type="button" id="saveImg" title="保存图片">保存</button>
         </div>
@@ -7503,18 +7506,12 @@
     function paintOrientPick() {
       const sel = document.getElementById("orientPick");
       if (!sel) return;
-      const onTrack = viewMode === "track";
       const value = isPortrait() ? "portrait" : "landscape";
       sel.querySelectorAll("button[data-orient]").forEach((btn) => {
-        const on = !onTrack && btn.getAttribute("data-orient") === value;
+        const on = btn.getAttribute("data-orient") === value;
         btn.classList.toggle("on", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
-      const trackBtn = sel.querySelector('button[data-mode="track"]');
-      if (trackBtn) {
-        trackBtn.classList.toggle("on", onTrack);
-        trackBtn.setAttribute("aria-pressed", onTrack ? "true" : "false");
-      }
     }
     function applyOrient(orient, opts) {
       opts = opts || {};
@@ -12006,7 +12003,7 @@
       }
       viewMode = next;
       persistLastView();
-      // Bottom「月历」covers month / recent / track (日志 is in 横版|竖版|日志).
+      // Bottom「月历」covers month / recent / track (日志|周期|月历 segment).
       const calTab = viewMode === "month" || viewMode === "recent" || viewMode === "track";
       document.getElementById("tabMonth").classList.toggle("active", calTab);
       document.getElementById("tabBooks").classList.toggle("active", viewMode === "books");
@@ -12133,9 +12130,15 @@
     function paintCalKindPick() {
       const kindPick = document.getElementById("calKindPick");
       if (!kindPick) return;
+      const onTrack = viewMode === "track";
       const kind = (viewMode === "recent" || viewMode === "month") ? viewMode : readCalKindPref();
+      const trackBtn = kindPick.querySelector('button[data-mode="track"]');
+      if (trackBtn) {
+        trackBtn.classList.toggle("on", onTrack);
+        trackBtn.setAttribute("aria-pressed", onTrack ? "true" : "false");
+      }
       kindPick.querySelectorAll("button[data-cal-kind]").forEach((btn) => {
-        const on = btn.getAttribute("data-cal-kind") === kind;
+        const on = !onTrack && btn.getAttribute("data-cal-kind") === kind;
         btn.classList.toggle("on", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
@@ -18722,6 +18725,16 @@
     const calKindPick = document.getElementById("calKindPick");
     if (calKindPick) {
       calKindPick.addEventListener("click", (ev) => {
+        const modeBtn = ev.target.closest("button[data-mode]");
+        if (modeBtn && calKindPick.contains(modeBtn)) {
+          if (modeBtn.getAttribute("data-mode") !== "track") return;
+          if (viewMode === "track") return;
+          if (typeof ensureTrackDates === "function") ensureTrackDates();
+          if (typeof paintTrackCellInputs === "function") paintTrackCellInputs();
+          setMode("track");
+          refresh(false).catch((e) => showErr(e.message));
+          return;
+        }
         const btn = ev.target.closest("button[data-cal-kind]");
         if (!btn || !calKindPick.contains(btn)) return;
         const next = btn.getAttribute("data-cal-kind") === "recent" ? "recent" : "month";
@@ -18889,34 +18902,16 @@
     }
     document.getElementById("wallMonthPick").onchange = () => { saveWallPick().catch((e) => showErr(e.message)); };
     paintOrientPick();
+    paintCalKindPick();
     const orientPick = document.getElementById("orientPick");
     if (orientPick) {
       orientPick.addEventListener("click", (ev) => {
-        const modeBtn = ev.target.closest("button[data-mode]");
-        if (modeBtn && orientPick.contains(modeBtn)) {
-          if (modeBtn.getAttribute("data-mode") !== "track") return;
-          if (viewMode === "track") return;
-          if (typeof ensureTrackDates === "function") ensureTrackDates();
-          if (typeof paintTrackCellInputs === "function") paintTrackCellInputs();
-          setMode("track");
-          paintOrientPick();
-          refresh(false).catch((e) => showErr(e.message));
-          return;
-        }
         const btn = ev.target.closest("button[data-orient]");
         if (!btn || !orientPick.contains(btn)) return;
         const next = parseOrient(btn.getAttribute("data-orient")) || "landscape";
-        const leavingTrack = viewMode === "track";
-        if (!leavingTrack && next === plannerOrient) return;
+        if (next === plannerOrient) return;
         applyOrient(next);
         persistOrientNow(next).catch(() => {});
-        if (leavingTrack) {
-          const kind = readCalKindPref();
-          paintCalKindPick();
-          setMode(kind);
-          paintOrientPick();
-          refresh(false).catch((e) => showErr(e.message));
-        }
       });
     }
     ["wallW", "wallH", "wallMag"].forEach((id) => {

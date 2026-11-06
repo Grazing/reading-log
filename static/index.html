@@ -945,7 +945,7 @@
       right: calc(50% + min(280px, 100% - 40px) / 2 + 12px);
     }
     body.books-select-on .book-select-check { display: block; }
-    /* Align with .book-select-check: 12px left of head (= card) left edge. */
+    /* Same native checkbox look as .book-select-check (accent √ / indeterminate -). */
     .books-month-head .books-month-check {
       display: none;
       position: absolute;
@@ -961,7 +961,9 @@
       z-index: 3;
       pointer-events: auto;
     }
-    body.books-select-on .books-month-head .books-month-check { display: block; }
+    body.books-select-on .books-month-head .books-month-check {
+      display: block;
+    }
     body.books-card-brief.books-hide-on .book-hide-checks > label {
       display: inline-flex;
       align-items: center;
@@ -5052,7 +5054,7 @@
       top: auto;
       margin: 0 auto;
       max-width: none;
-      width: 280px;
+      width: 265px;
       box-sizing: border-box;
       overflow: visible;
       transform: none;
@@ -5199,7 +5201,7 @@
     /* 按月：每月顶部 — 画布底，文字为票根底色 50%；上下边距 25/15。字号同 .ticket-year。 */
     .ticket-month-gap {
       position: relative;
-      width: 280px;
+      width: 265px;
       height: auto;
       flex: 0 0 auto;
       box-sizing: border-box;
@@ -5224,6 +5226,7 @@
       pointer-events: none;
       color: inherit;
     }
+    /* Same native checkbox look as .ticket-check (accent √ / indeterminate -). */
     .ticket-month-gap .ticket-month-check {
       display: none;
       position: absolute;
@@ -5256,26 +5259,28 @@
       z-index: 2;
     }
     body.tickets-select-on .ticket-check { display: block; }
-    body.mode-tickets #bookView { width: 280px; box-sizing: border-box; }
+    body.mode-tickets #bookView { width: 265px; box-sizing: border-box; }
     /*
      * 票根.svg viewBox 0 0 34.04 72.87
      * cover rect 2.21,2.96 29.64×39.11 (~87%W × 54%H); title @ y=46.05
      * Root bug: global .cover{position:absolute} escaped without position:relative here.
+     * Stub design width 280→265 (−15); vertical pad/gaps tightened so card stays squat.
      */
     .ticket-stub {
       --ticket-vb-w: 34.04;
       --ticket-vb-h: 72.87;
       position: relative;
       flex: 1 1 auto;
-      width: 280px;
+      width: 265px;
       box-sizing: border-box;
       background: var(--ticket-bg, #fcfbf8);
       color: var(--ticket-ink, #3a322c);
       /* SVG outline mask (notch + scalloped edges); notch Y synced in JS. */
       -webkit-mask: url("/ticket-stub-mask.svg") center / 100% 100% no-repeat;
       mask: url("/ticket-stub-mask.svg") center / 100% 100% no-repeat;
-      /* Pad: original 18px L/R +5px inset each side → 23px; cover + text stay flush. */
-      padding: 24px 23px 18px;
+      /* Pad: original 18px L/R +5px inset each side → 23px; cover + text stay flush.
+       * Bottom +20/9: even share of stub +20 height across 9 vertical gaps. */
+      padding: 20px 23px calc(15px + 20px / 9);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -5301,7 +5306,7 @@
       border-radius: 0;
       overflow: hidden;
       background: #eee8df;
-      margin: 0 0 10px;
+      margin: 0 0 calc(8px + 20px / 9); /* gap1 cover→title; +20/9 of stub +20 */
       flex: 0 0 auto;
       align-self: stretch;
     }
@@ -5336,7 +5341,7 @@
     /* Title + year continuous (SVG: 书名 then (2021) on same baseline). */
     .ticket-title-row {
       display: block;
-      margin: 0;
+      margin: 0; /* gap2 title→perf1 via first .ticket-perf margin-top */
       line-height: 1.25;
       word-break: break-word;
     }
@@ -5360,12 +5365,17 @@
       position: relative;
       height: 0;
       width: calc(100% + 16px);
-      margin: 8px -8px;
+      margin: 6px -8px;
       border: 0;
       border-top: 1.2px dashed var(--ticket-ink-50, rgba(58, 50, 44, 0.5));
       flex: 0 0 auto;
       align-self: stretch;
       box-sizing: border-box;
+    }
+    /* First divider: gap2 title→perf (+20/9 top) + gap3 perf→author (+20/9 bottom). */
+    .ticket-title-row + .ticket-perf {
+      margin-top: calc(6px + 20px / 9);
+      margin-bottom: calc(6px + 20px / 9);
     }
     .ticket-perf.solid {
       border-top-style: dashed;
@@ -5394,17 +5404,39 @@
     .ticket-meta-line .ticket-sep { opacity: 0.45; margin: 0 4px; }
     .ticket-facts {
       display: grid;
-      grid-template-columns: 1.15fr 1fr 0.75fr;
-      column-gap: 8px;
-      row-gap: 8px;
+      /*
+       * Fixed ISBN track so 字数 left edge is stable across tickets.
+       * Content ≈219px @ 265 stub / 23px pad: ISBN 100px + gap 5 → 字数 @105;
+       * wordCount margin-left +6 → @111. Middle is minmax(0,1fr) so it yields
+       * when 定价/时长 need width; right is max-content so 「30小时39分钟」
+       * stays one line (old 1fr + min-width:0 + break-word squeezed it while
+       * left tracks still looked empty). justify-self:end keeps 定价/时长
+       * right edge on the recorder edge when one is shorter than the other.
+       */
+      grid-template-columns: 100px minmax(0, 1fr) max-content;
+      column-gap: 5px;
+      /* gap5 ISBN→阅读时间 + gap6 阅读时间→评分: each +20/9 via row-gap.
+       * gap4 作者组→ISBN: +20/9 on margin-top (middle perf stays 6/6). */
+      row-gap: calc(6px + 20px / 9);
       font-size: 10px;
       line-height: 1.3;
-      margin: 0;
+      margin: calc(20px / 9) 0 0;
       width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
     .ticket-fact {
       cursor: text;
       word-break: break-word;
+      min-width: 0;
+    }
+    /* ISBN digits stay one line inside the fixed first track. */
+    .ticket-fact[data-field="isbn"] {
+      white-space: nowrap;
+      word-break: normal;
+      overflow-wrap: normal;
+      overflow: hidden;
     }
     .ticket-fact .ticket-lab {
       display: block;
@@ -5415,25 +5447,53 @@
       display: block;
       font-weight: 400;
     }
-    /* Was padding-left:10px; user asked 左移25px from that visual → net −15px from grid. */
+    /* Position from fixed col1; one line (commas included, e.g. 2,437,130). */
+    .ticket-fact[data-field="wordCount"] {
+      margin-left: 6px;
+      white-space: nowrap;
+      word-break: normal;
+      overflow-wrap: normal;
+      overflow: hidden;
+    }
+    /* 定价 / 阅读时长：右缘与票根正文右缘齐（同 .ticket-foot / 记录人），块内左对齐 */
     .ticket-fact[data-field="price"],
     .ticket-fact[data-field="duration"] {
+      margin-left: 0;
       padding-left: 0;
-      margin-left: -15px;
       box-sizing: border-box;
+      justify-self: end;
+      width: max-content;
+      max-width: none;
+      min-width: max-content;
+      white-space: nowrap;
+      word-break: normal;
+      overflow-wrap: normal;
+      text-align: left;
+    }
+    .ticket-fact[data-field="price"] .ticket-lab,
+    .ticket-fact[data-field="duration"] .ticket-lab,
+    .ticket-fact[data-field="price"] .ticket-val,
+    .ticket-fact[data-field="duration"] .ticket-val {
+      text-align: left;
+      white-space: nowrap;
     }
     .ticket-rating-row {
+      --ticket-rating-gap: 5.23px;
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      justify-content: flex-start;
+      /* Match .ticket-stars gap so label→first star == star→star.
+         5.23px: live shortfall ~12.27px / 10 gaps → stars right == 记录人 / .ticket-foot right. */
+      gap: var(--ticket-rating-gap);
       min-height: 18px;
       cursor: default;
       width: 100%;
+      max-width: 100%;
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      min-width: 0;
     }
     .ticket-rating-row .ticket-lab {
       display: inline;
@@ -5447,21 +5507,22 @@
     .ticket-stars {
       display: inline-flex;
       align-items: center;
-      justify-content: flex-end;
-      /* Fit with label on left inside content width (~234px). */
-      gap: 5px;
-      margin-left: auto;
+      justify-content: flex-start;
+      /* Same as .ticket-rating-row gap (label→star == star→star). */
+      gap: var(--ticket-rating-gap, 5.23px);
+      margin-left: 0;
       margin-right: 0;
-      flex: 0 0 auto;
+      flex: 0 1 auto;
       padding: 0;
       max-width: calc(100% - 4.5em);
+      min-width: 0;
     }
     /*
      * Star from 票根.svg polygon (chunky 5-point).
-     * Sized so 10 stars + gaps fit beside 「综合评分:」 without shoving label left.
+     * 12.4px × 10 + gap 5.23px × 9 ≈ 171px — right edge flush with 记录人.
      */
     .ticket-star {
-      --ticket-star-w: 13px;
+      --ticket-star-w: 12.4px;
       position: relative;
       width: var(--ticket-star-w);
       height: calc(var(--ticket-star-w) * 1.6 / 1.68);
@@ -5514,6 +5575,11 @@
       width: 200%;
       height: 100%;
     }
+    /* Third divider (before foot): gap7 rating→perf + gap8 perf→TheBook. */
+    .ticket-facts + .ticket-perf {
+      margin-top: calc(6px + 20px / 9);
+      margin-bottom: calc(6px + 20px / 9);
+    }
     .ticket-foot {
       display: flex;
       align-items: baseline;
@@ -5521,7 +5587,8 @@
       gap: 10px;
       font-size: 8px; /* SVG st4 0.93vb */
       margin-top: auto;
-      padding-top: 6px;
+      padding-top: 3px;
+      padding-bottom: 2px;
       width: 100%;
     }
     .ticket-brand {
@@ -6826,18 +6893,16 @@
       const check = head.querySelector(".books-month-check");
       if (!check) return;
       const ym = head.dataset.month || "";
-      const ids = booksMonthIdsFromHead(head);
-      const phase = booksMonthSelectPhase(ym, ids);
-      if (phase === "master") {
-        check.checked = true;
-        check.indeterminate = false;
-      } else if (phase === "allNoLabel" || phase === "partial") {
-        check.checked = false;
-        check.indeterminate = true;
-      } else {
-        check.checked = false;
-        check.indeterminate = false;
+      let ids = booksMonthIdsFromHead(head);
+      if (!ids.length && head.dataset.bookIds) {
+        ids = String(head.dataset.bookIds || "").split(",").filter(Boolean);
       }
+      const phase = booksMonthSelectPhase(ym, ids);
+      // Native look: ✓ checked, - indeterminate (same as card accent checkbox).
+      check.indeterminate = phase === "allNoLabel" || phase === "partial";
+      check.checked = phase === "master";
+      check.dataset.state = phase;
+      check.setAttribute("aria-checked", phase === "master" ? "true" : (phase === "off" ? "false" : "mixed"));
     }
     function syncBooksMonthSelectChecks(root) {
       const scope = root || document.getElementById("bookView");
@@ -11725,7 +11790,7 @@
       pan.style.transform = "none";
       box.style.zoom = "";
       box.style.transform = "none";
-      // Design width: cards 625; tickets stub 280 (+28px gutter when 选择, CSS).
+      // Design width: cards 625; tickets stub 265 (+28px gutter when 选择, CSS).
       if (viewMode === "tickets") {
         box.style.width = "";
         box.style.paddingLeft = "";
@@ -11765,8 +11830,8 @@
       // Tickets: 100% = one stub fills the canvas (min of width/height fit).
       if (viewMode === "tickets") {
         const stub = box.querySelector(".ticket-stub");
-        const tw = Math.max(1, (stub && (stub.offsetWidth || stub.clientWidth)) || 280);
-        const th = Math.max(1, (stub && (stub.offsetHeight || stub.clientHeight)) || 560);
+        const tw = Math.max(1, (stub && (stub.offsetWidth || stub.clientWidth)) || 265);
+        const th = Math.max(1, (stub && (stub.offsetHeight || stub.clientHeight)) || 530);
         booksFitScale = Math.min(viewW / tw, viewH / th);
       } else {
         let fitW = viewW;
@@ -12435,8 +12500,9 @@
         : (booksPeriodRangeCache.has(ym) ? booksPeriodRangeCache.get(ym) : emptyPeriodRangeStats());
       const collapsed = booksPeriodCollapsed.has(ym || "");
       const ids = (monthBooks || []).map((b) => String(b && b.id || "")).filter(Boolean);
+      head.dataset.bookIds = ids.join(",");
       head.innerHTML =
-        '<input type="checkbox" class="books-month-check" aria-label="选择本月卡片" />' +
+        '<input type="checkbox" class="books-month-check" aria-label="选择本月卡片" data-state="off" />' +
         '<div class="books-month-strip"></div>' +
         '<div class="books-month-title">' + escapeHtml(title) + "</div>" +
         '<div class="books-month-stats-row">' +
@@ -12458,7 +12524,8 @@
         monthCheck.addEventListener("click", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          cycleBooksMonthSelect(head, ids);
+          const liveIds = booksMonthIdsFromHead(head);
+          cycleBooksMonthSelect(head, liveIds.length ? liveIds : ids);
         });
       }
       box.appendChild(head);
@@ -16828,9 +16895,11 @@
       opts = opts || {};
       const clone = head.cloneNode(true);
       clone.style.width = "";
+      clone.style.opacity = "0.5";
       clone.querySelectorAll(".books-month-collapse, .books-month-check").forEach((el) => el.remove());
-      // Keep spacing but hide YYYY-MM / stats when month master was not used.
-      if (opts.hideLabel) {
+      // No ✓ for this month: keep vertical spacing, hide YYYY-MM / stats text.
+      if (opts.blank) {
+        clone.setAttribute("aria-hidden", "true");
         clone.querySelectorAll(".books-month-title, .books-month-stats, .books-month-strip").forEach((el) => {
           el.style.visibility = "hidden";
         });
@@ -16868,7 +16937,10 @@
           const card = child.querySelector(".book-card");
           if (!card || list.indexOf(card) < 0) return;
           if (pendingMonth) {
-            nodes.push({ kind: "month", el: pendingMonth });
+            const ym = pendingMonth.dataset.month || "";
+            // ✓ master → label; else keep month-slot height as blank spacer (no text).
+            const blank = !!(booksSelectOn && !booksMonthMaster.has(ym));
+            nodes.push({ kind: "month", el: pendingMonth, blank: blank });
             pendingMonth = null;
           }
           nodes.push({ kind: "card", el: card });
@@ -16876,9 +16948,7 @@
         nodes.forEach((node, i) => {
           const last = i === nodes.length - 1;
           if (node.kind === "month") {
-            const ym = node.el.dataset.month || "";
-            const hideLabel = !!booksSelectOn && !booksMonthMaster.has(ym);
-            const clone = cloneBooksMonthHeadForExport(node.el, { hideLabel: hideLabel });
+            const clone = cloneBooksMonthHeadForExport(node.el, { blank: !!node.blank });
             clone.style.marginBottom = last ? "0px" : cardGapPx;
             if (i === 0) clone.style.marginTop = "0px";
             host.appendChild(clone);
@@ -19107,7 +19177,7 @@
       const m = total % 60;
       return h + "小时" + m + "分钟";
     }
-    /** Display word count with thousand separators (e.g. 465,289). */
+    /** Display word count with thousand separators (e.g. 2,437,130). */
     function formatTicketWords(val) {
       const n = Number(String(val == null ? "" : val).replace(/,/g, "").trim());
       if (!Number.isFinite(n) || n <= 0) return "";
@@ -19350,7 +19420,7 @@
     function starsHtml(rating) {
       const r = Number(rating) || 0;
       const glyph = ticketStarSvgHtml();
-      let html = '<span class="ticket-stars" role="img" aria-label="综合评分 ' + r + ' / 10">';
+      let html = '<span class="ticket-stars" role="img" aria-label="个人评分 ' + r + ' / 10">';
       for (let i = 1; i <= 10; i++) {
         let cls = "ticket-star";
         if (r >= i) cls += " on";
@@ -19437,7 +19507,7 @@
         "</div>" +
         ticketFactCell("duration", "阅读时长", m.duration) +
         '<div class="ticket-rating-row" data-field="rating">' +
-        '<span class="ticket-lab">综合评分:</span>' + starsHtml(m.rating) +
+        '<span class="ticket-lab">个人评分:</span>' + starsHtml(m.rating) +
         "</div></div>";
       item.innerHTML =
         '<input type="checkbox" class="ticket-check" aria-label="选择票根"' + (checked ? " checked" : "") + " />" +
@@ -19576,7 +19646,7 @@
           patchTicketBook(book.id, { rating: next });
           const row = stub.querySelector('.ticket-rating-row[data-field="rating"]');
           if (row) {
-            row.innerHTML = '<span class="ticket-lab">综合评分:</span>' + starsHtml(next);
+            row.innerHTML = '<span class="ticket-lab">个人评分:</span>' + starsHtml(next);
           }
           clearTicketStarHover(stub);
           return;
@@ -19915,7 +19985,7 @@
       clone.style.color = ink;
       const host = document.createElement("div");
       host.setAttribute("aria-hidden", "true");
-      host.style.cssText = "position:fixed;left:-10000px;top:0;width:280px;background:transparent;overflow:visible;z-index:-1;";
+      host.style.cssText = "position:fixed;left:-10000px;top:0;width:265px;background:transparent;overflow:visible;z-index:-1;";
       applyTicketPaletteVars(host);
       host.appendChild(clone);
       document.body.appendChild(host);
@@ -19924,7 +19994,7 @@
         const maskUrl = extractCssUrl(maskCss) || "/ticket-stub-mask.svg";
         await waitForImages(host);
         await waitPaint(1);
-        const w = Math.max(clone.scrollWidth, clone.offsetWidth, 280);
+        const w = Math.max(clone.scrollWidth, clone.offsetWidth, 265);
         const h = Math.max(clone.scrollHeight, clone.offsetHeight, 1);
         const raw = await withLiveToneFiltersCleared(() => html2canvas(clone, {
           backgroundColor: stubBg,
@@ -20002,14 +20072,14 @@
       const pad = Math.round(basePad * 10);
       const fill = cssColor((ticketStore.palette || {}).canvas || TICKET_PALETTE_DEFAULT.canvas);
       const ticketN = nodes.filter((n) => n.kind === "ticket").length;
-      const estH = ticketN * 620 + nodes.length * 40 + pad * 2;
-      const scale = ticketExportPreferScale(280 + pad * 2, estH);
+      const estH = ticketN * 580 + nodes.length * 40 + pad * 2;
+      const scale = ticketExportPreferScale(265 + pad * 2, estH);
       const pieces = [];
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
         if (node.kind === "gap") {
           // Bulk + 按月: keep vertical spacing only — no YYYY-MM text in export.
-          const c = paintTicketMonthGapSpacer(280, scale);
+          const c = paintTicketMonthGapSpacer(265, scale);
           pieces.push({ kind: "gap", canvas: c, width: c.width, height: c.height });
           continue;
         }

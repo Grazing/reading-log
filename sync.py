@@ -308,9 +308,11 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
             price = weread.pick_price(info, extra)
             if price:
                 meta["price"] = price
-            year = weread.pick_publish_year(info, extra)
-            if year:
-                meta["publishYear"] = year
+            # Do NOT reuse param name `year` — that shadows sync (year, month)
+            # and later "%04d-%02d" % (year, month) raises TypeError on str.
+            publish_year = weread.pick_publish_year(info, extra)
+            if publish_year:
+                meta["publishYear"] = publish_year
             store.upsert_book_full(book_id, title, "weread", meta)
         except weread.SessionExpired:
             expired = True
@@ -357,7 +359,7 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
         ts = weread._now()
         store.set_setting("wereadSyncAt", str(ts))
         if year and month:
-            store.set_setting("wereadSyncMonth", "%04d-%02d" % (year, month))
+            store.set_setting("wereadSyncMonth", "%04d-%02d" % (int(year), int(month)))
         result["wereadSyncAt"] = ts
     else:
         result["wereadSyncAt"] = store.weread_sync_at()

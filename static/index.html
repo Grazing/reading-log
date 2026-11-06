@@ -585,7 +585,7 @@
     }
     .books-tools button:hover { background: var(--btn); }
     /* Pressed: inset chip like .books-slot-pill selected (brown fill + gap to ring).
-       Seg direct children only (预估/明细/隐藏) — slot-pill keeps parent padding gap. */
+       Seg direct children only (按月/明细/隐藏) — slot-pill keeps parent padding gap. */
     .books-tools .books-seg > button.on {
       background: var(--week);
       color: var(--on-accent);
@@ -1258,6 +1258,12 @@
       line-height: 0.95;
       letter-spacing: 0.02em;
       white-space: nowrap;
+    }
+    .month-panel.track-export .portrait-month-name[contenteditable="true"] {
+      outline: none;
+      cursor: text;
+      /* Keep caret visible on the thin ultra-light title. */
+      caret-color: var(--date);
     }
     .month-panel.track-export .portrait-date.side-pill {
       letter-spacing: 0.08em;
@@ -3952,7 +3958,7 @@
       padding: 28px 2px 30px 26px;
       margin-bottom: 24px;
     }
-    /* Floating single-book card (bar left-click); independent of #menu color popover.
+    /* Floating single-book card (bar right-click); independent of #menu color popover.
        Layout matches books-mode .book-card at #bookView's 625px design width, then
        zoom:0.7 → 70% visual size. Do not set a smaller cover max-width here: that
        clamped syncBookCoverSizes width while height stayed body-tall (broken 3:4 →
@@ -3979,7 +3985,12 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
       zoom: 0.7;
     }
-    #cardPopup .book-card-strip { width: 8px; }
+    #cardPopup .book-card-strip {
+      width: 8px;
+      pointer-events: auto;
+      cursor: pointer;
+      z-index: 3;
+    }
     #cardPopup .book-row {
       gap: 34px;
       align-items: stretch;
@@ -4048,7 +4059,7 @@
     }
     #bookView .book-card-strip {
       pointer-events: auto;
-      cursor: context-menu;
+      cursor: pointer;
       z-index: 3;
     }
     .book-row { display: flex; gap: 34px; align-items: stretch; }
@@ -4200,7 +4211,7 @@
       font-weight: 500;
       line-height: 1.25;
       color: var(--books-ink);
-      cursor: context-menu;
+      cursor: pointer;
     }
     .book-title[contenteditable="true"] {
       outline: 1px dashed var(--line);
@@ -4228,7 +4239,7 @@
       line-height: 1.4;
     }
     .book-author {
-      cursor: context-menu;
+      cursor: pointer;
       min-height: 1.4em;
     }
     .book-author[contenteditable="true"] {
@@ -4237,7 +4248,7 @@
       color: var(--books-ink);
     }
     .stat-words .book-words {
-      cursor: context-menu;
+      cursor: pointer;
     }
     .book-words-num[contenteditable="true"] {
       outline: 1px dashed var(--line);
@@ -4318,7 +4329,7 @@
       cursor: default;
     }
     .book-finish.finish-editable {
-      cursor: context-menu;
+      cursor: pointer;
     }
     .stats-wrap {
       display: grid;
@@ -4343,7 +4354,7 @@
       color: var(--books-ink);
     }
     .stat-progress .book-progress {
-      cursor: context-menu;
+      cursor: pointer;
     }
     .book-progress-num {
       font-family: var(--ui-font);
@@ -4518,7 +4529,7 @@
       color: var(--books-ink);
     }
     .day-row { margin: 7px 0; }
-    .day-row[data-date] { cursor: context-menu; }
+    .day-row[data-date] { cursor: pointer; }
     /* Trailing bar → + gap comes only from .book-detail-add margin (match bottom). */
     .day-row:has(+ .book-detail-add),
     .day-row:has(+ .book-detail-add-form),
@@ -5267,6 +5278,63 @@
       z-index: 2;
     }
     body.tickets-select-on .ticket-check { display: block; }
+    /* Hide mode: visibility checks + 导出/保存 left of stub (same idea as .book-hide-checks). */
+    .ticket-hide-checks {
+      display: none;
+      position: absolute;
+      right: calc(100% + 12px);
+      top: 50%;
+      transform: translateY(-50%);
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      min-width: 4.2em;
+      /* Labels: 票根背景 (stub); buttons invert stub/canvas below. */
+      color: var(--ticket-bg, #fcfbf8);
+      font-size: 13px;
+      z-index: 2;
+      pointer-events: auto;
+    }
+    body.tickets-hide-on .ticket-hide-checks { display: flex; }
+    .ticket-hide-checks label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      color: var(--ticket-bg, #fcfbf8);
+    }
+    /* Same native checkbox chrome as .book-hide-checks input; only accent swapped. */
+    .ticket-hide-checks input {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--ticket-bg, #fcfbf8);
+    }
+    .ticket-hide-checks .book-card-export-btn {
+      appearance: none;
+      border: 1px solid var(--ticket-bg, #fcfbf8);
+      background: var(--ticket-bg, #fcfbf8);
+      color: var(--ticket-canvas, #f5f1eb);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font: inherit;
+      font-size: 12px;
+      line-height: 1.2;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .ticket-hide-checks .book-card-export-btn:hover {
+      background: var(--ticket-bg, #fcfbf8);
+      border-color: var(--ticket-bg, #fcfbf8);
+      color: var(--ticket-canvas, #f5f1eb);
+      opacity: 0.92;
+    }
+    .ticket-hide-checks .book-card-export-btn:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
     body.mode-tickets #bookView { width: 265px; box-sizing: border-box; }
     /*
      * 票根.svg viewBox 0 0 34.04 72.87
@@ -5287,8 +5355,9 @@
       -webkit-mask: url("/ticket-stub-mask.svg") center / 100% 100% no-repeat;
       mask: url("/ticket-stub-mask.svg") center / 100% 100% no-repeat;
       /* Pad: original 18px L/R +5px inset each side → 23px; cover + text stay flush.
-       * Bottom +20/9: even share of stub +20 height across 9 vertical gaps. */
-      padding: 20px 23px calc(15px + 20px / 9);
+       * Bottom +20/9: even share of stub +20 height across 9 vertical gaps.
+       * TheBook→bottom: calc(18px + 20/9) ≈ 20.22px (was 12px base → +7). */
+      padding: 20px 23px calc(18px + 20px / 9);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -5314,7 +5383,8 @@
       border-radius: 0;
       overflow: hidden;
       background: #eee8df;
-      margin: 0 0 calc(8px + 20px / 9); /* gap1 cover→title; +20/9 of stub +20 */
+      /* +5 above cover only (not stub pad-top — keeps side chrome/mask intact). */
+      margin: 5px 0 calc(8px + 20px / 9); /* gap1 cover→title; +20/9 of stub +20 */
       flex: 0 0 auto;
       align-self: stretch;
     }
@@ -5385,7 +5455,7 @@
       margin-top: calc(6px + 20px / 9);
       margin-bottom: calc(6px + 20px / 9);
     }
-    /* Middle divider: 译者→perf matches title→perf / facts→perf (was bare 6px top). */
+    /* Middle divider: 译者→perf matches title→perf / facts→perf. */
     .ticket-meta-line + .ticket-perf {
       margin-top: calc(6px + 20px / 9);
       margin-bottom: calc(6px + 20px / 9);
@@ -6109,10 +6179,13 @@
           <button type="button" id="booksSlotSpeed" data-books-slot="speed" title="显示阅读时速" aria-pressed="false">时速</button>
           <button type="button" id="booksSlotDate" data-books-slot="date" title="显示日期" aria-pressed="true">日期</button>
         </div>
+        <div class="books-slot-pill" role="group" aria-label="预估或天数">
+          <button type="button" id="booksEstimateBtn" data-books-estimate="estimate" title="未读完的书显示预估剩余阅读时间" aria-pressed="false">预估</button>
+          <button type="button" id="booksDaysBtn" data-books-estimate="days" title="显示阅读天数" aria-pressed="true">天数</button>
+        </div>
         <button type="button" id="booksPeriodBtn" title="按月份分段显示卡片" aria-pressed="false">按月</button>
-        <button type="button" id="booksEstimateBtn" title="未读完的书显示预估剩余阅读时间" aria-pressed="false">预估</button>
         <button type="button" id="booksDetailsBtn" title="展开全部阅读明细" aria-pressed="false">明细</button>
-        <button type="button" id="booksHideBtn" title="选择要在月历、卡片中隐藏的书" aria-pressed="false">隐藏</button>
+        <button type="button" id="booksHideBtn" title="选择要在月历、卡片、票根中隐藏的书" aria-pressed="false">隐藏</button>
         <button type="button" id="booksSelectBtn" title="选择要导出的卡片" aria-pressed="false">选择</button>
       </div>
       <div class="books-seg" role="group" aria-label="视图缩放">
@@ -6148,6 +6221,7 @@
       </div>
       <div class="books-seg books-seg-actions" role="group" aria-label="票根工具">
         <button type="button" id="ticketsPeriodBtn" title="按月份分段显示票根" aria-pressed="false">按月</button>
+        <button type="button" id="ticketsHideBtn" title="选择要在月历、卡片、票根中隐藏的书" aria-pressed="false">隐藏</button>
         <button type="button" id="ticketsSelectBtn" title="选择要导出的票根" aria-pressed="false">选择</button>
       </div>
       <div class="books-seg" role="group" aria-label="配色与缩放">
@@ -6824,6 +6898,8 @@
     let booksSearchQuery = "";
     let booksSearchTimer = 0;
     let booksHideOn = false;
+    /** Ticket-mode hide chrome; declared early so visibleBooks can read it. */
+    let ticketsHideOn = false;
     let booksSelectOn = false;
     let booksSelected = new Set();
     /** Month keys: export includes YYYY-MM label (✓ master). */
@@ -6836,48 +6912,74 @@
     function persistBooksChrome() {
       try { localStorage.setItem(BOOKS_CHROME_KEY, JSON.stringify(booksChrome)); } catch (e) {}
     }
-    function hideChecksFor(book) {
+    function hideChecksFor(book, opts) {
+      const forTickets = !!(opts && opts.tickets);
       const flags = bookFlags(book);
       const box = document.createElement("div");
-      box.className = "book-hide-checks";
+      box.className = forTickets ? "ticket-hide-checks" : "book-hide-checks";
+      const allOn = flags.cal && flags.card && flags.ticket;
       box.innerHTML =
-        '<label><input type="checkbox" data-hide="all"' + (flags.cal && flags.card ? " checked" : "") + '>全部</label>' +
+        '<label><input type="checkbox" data-hide="all"' + (allOn ? " checked" : "") + '>全部</label>' +
         '<label><input type="checkbox" data-hide="cal"' + (flags.cal ? " checked" : "") + '>月历</label>' +
         '<label><input type="checkbox" data-hide="card"' + (flags.card ? " checked" : "") + '>卡片</label>' +
-        '<button type="button" class="book-card-export-btn" data-card-action="export" title="导出该卡片为透明底 PNG">导出</button>' +
-        '<button type="button" class="book-card-export-btn" data-card-action="save" title="保存该卡片（米色外轮廓）">保存</button>';
+        '<label><input type="checkbox" data-hide="ticket"' + (flags.ticket ? " checked" : "") + '>票根</label>' +
+        '<button type="button" class="book-card-export-btn" data-card-action="export" title="' +
+        (forTickets ? "导出该票根为透明底 PNG" : "导出该卡片为透明底 PNG") + '">导出</button>' +
+        '<button type="button" class="book-card-export-btn" data-card-action="save" title="' +
+        (forTickets ? "保存该票根（画布底，同右键）" : "保存该卡片（米色外轮廓）") + '">保存</button>';
       const all = box.querySelector('[data-hide="all"]');
       const cal = box.querySelector('[data-hide="cal"]');
       const card = box.querySelector('[data-hide="card"]');
+      const ticket = box.querySelector('[data-hide="ticket"]');
       const exportBtn = box.querySelector('.book-card-export-btn[data-card-action="export"]');
       const saveBtn = box.querySelector('.book-card-export-btn[data-card-action="save"]');
       const write = (fromAll) => {
         if (fromAll) {
           cal.checked = all.checked;
           card.checked = all.checked;
+          ticket.checked = all.checked;
         } else {
-          all.checked = cal.checked && card.checked;
+          all.checked = cal.checked && card.checked && ticket.checked;
         }
-        const next = { cal: !!cal.checked, card: !!card.checked };
+        const next = { cal: !!cal.checked, card: !!card.checked, ticket: !!ticket.checked };
         bookVis[String(book.id)] = next;
         book.showCal = next.cal;
         book.showCard = next.card;
+        book.showTicket = next.ticket;
       };
       all.addEventListener("change", () => write(true));
       cal.addEventListener("change", () => write(false));
       card.addEventListener("change", () => write(false));
-      const wireCardAction = (btn, opts) => {
-        if (!btn) return;
-        btn.addEventListener("click", (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          const item = box.closest(".book-item");
-          const liveCard = item && item.querySelector(".book-card");
-          saveSingleBookCardImage(book, liveCard, opts).catch((e) => showErr(e.message || ((opts && opts.transparent) ? "导出失败" : "保存失败")));
-        });
-      };
-      wireCardAction(exportBtn, { transparent: true });
-      wireCardAction(saveBtn, { transparent: false });
+      ticket.addEventListener("change", () => write(false));
+      if (forTickets) {
+        const wireTicketAction = (btn, actionOpts) => {
+          if (!btn) return;
+          btn.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const item = box.closest(".ticket-item");
+            const liveStub = item && item.querySelector(".ticket-stub");
+            saveSingleTicketImage(book, liveStub, actionOpts).catch((e) =>
+              showErr(e.message || ((actionOpts && actionOpts.transparent) ? "导出失败" : "保存失败")));
+          });
+        };
+        wireTicketAction(exportBtn, { transparent: true });
+        wireTicketAction(saveBtn, { transparent: false });
+      } else {
+        const wireCardAction = (btn, actionOpts) => {
+          if (!btn) return;
+          btn.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const item = box.closest(".book-item");
+            const liveCard = item && item.querySelector(".book-card");
+            saveSingleBookCardImage(book, liveCard, actionOpts).catch((e) =>
+              showErr(e.message || ((actionOpts && actionOpts.transparent) ? "导出失败" : "保存失败")));
+          });
+        };
+        wireCardAction(exportBtn, { transparent: true });
+        wireCardAction(saveBtn, { transparent: false });
+      }
       box.addEventListener("mousedown", (ev) => ev.stopPropagation());
       box.addEventListener("click", (ev) => ev.stopPropagation());
       return box;
@@ -6887,7 +6989,7 @@
       if (!btn) return;
       btn.classList.toggle("on", !!booksHideOn);
       btn.setAttribute("aria-pressed", booksHideOn ? "true" : "false");
-      btn.title = booksHideOn ? "应用隐藏并收起复选框" : "选择要在月历、卡片中隐藏的书";
+      btn.title = booksHideOn ? "应用隐藏并收起复选框" : "选择要在月历、卡片、票根中隐藏的书";
     }
     function paintBooksSelectBtn() {
       const btn = document.getElementById("booksSelectBtn");
@@ -7006,11 +7108,13 @@
         const flags = bookFlags(book);
         const cal = flags.cal !== false;
         const card = flags.card !== false;
+        const ticket = flags.ticket !== false;
         const id = String(book.id);
-        books[id] = { cal: cal, card: card };
+        books[id] = { cal: cal, card: card, ticket: ticket };
         book.showCal = cal;
         book.showCard = card;
-        bookVis[id] = { cal: cal, card: card };
+        book.showTicket = ticket;
+        bookVis[id] = { cal: cal, card: card, ticket: ticket };
       });
       await api("/api/settings", {
         method: "POST",
@@ -7020,6 +7124,9 @@
     }
     function anyCardHiddenBooks() {
       return ((bookData && bookData.books) || []).some((b) => !bookFlags(b).card);
+    }
+    function anyTicketHiddenBooks() {
+      return ((bookData && bookData.books) || []).some((b) => !bookFlags(b).ticket);
     }
     async function setBooksHide(on) {
       if (booksHideOn && !on) {
@@ -7052,13 +7159,18 @@
       btn.title = booksDetailsOn ? "收起全部阅读明细" : "展开全部阅读明细";
     }
     function paintBooksEstimateBtn() {
-      const btn = document.getElementById("booksEstimateBtn");
-      if (!btn) return;
-      btn.classList.toggle("on", !!booksEstimateOn);
-      btn.setAttribute("aria-pressed", booksEstimateOn ? "true" : "false");
-      btn.title = booksEstimateOn
-        ? "关闭预估剩余，恢复阅读天数"
-        : "未读完的书显示预估剩余阅读时间";
+      const estimateBtn = document.getElementById("booksEstimateBtn");
+      const daysBtn = document.getElementById("booksDaysBtn");
+      if (estimateBtn) {
+        estimateBtn.classList.toggle("on", !!booksEstimateOn);
+        estimateBtn.setAttribute("aria-pressed", booksEstimateOn ? "true" : "false");
+        estimateBtn.title = "未读完的书显示预估剩余阅读时间";
+      }
+      if (daysBtn) {
+        daysBtn.classList.toggle("on", !booksEstimateOn);
+        daysBtn.setAttribute("aria-pressed", booksEstimateOn ? "false" : "true");
+        daysBtn.title = "显示阅读天数";
+      }
     }
     function paintBooksPeriodBtn() {
       const btn = document.getElementById("booksPeriodBtn");
@@ -12020,6 +12132,7 @@
       document.body.classList.toggle("mode-recent", viewMode === "recent");
       if (viewMode !== "tickets") {
         document.body.classList.remove("tickets-select-on");
+        document.body.classList.remove("tickets-hide-on");
         if (typeof closeTicketPaletteMenu === "function") closeTicketPaletteMenu();
       }
       if (viewMode !== "books") {
@@ -12274,10 +12387,18 @@
     }
     function bookFlags(book) {
       const id = String((book && book.id) || "");
-      if (bookVis[id]) return bookVis[id];
+      if (bookVis[id]) {
+        const f = bookVis[id];
+        return {
+          cal: f.cal !== false,
+          card: f.card !== false,
+          ticket: f.ticket !== false
+        };
+      }
       return {
         cal: !book || book.showCal !== false,
-        card: !book || book.showCard !== false
+        card: !book || book.showCard !== false,
+        ticket: !book || book.showTicket !== false
       };
     }
     function booksSearchHaystack(book) {
@@ -12293,8 +12414,14 @@
     function visibleBooks(list, opts) {
       const books = Array.isArray(list) ? list.slice() : [];
       const forExport = !!(opts && opts.forExport);
+      const forTickets = !!(opts && opts.forTickets);
       const filtered = books.filter((book) => {
-        if ((forExport || !booksHideOn) && !bookFlags(book).card) return false;
+        const flags = bookFlags(book);
+        if (forTickets) {
+          if ((forExport || !ticketsHideOn) && !flags.ticket) return false;
+        } else if ((forExport || !booksHideOn) && !flags.card) {
+          return false;
+        }
         if (!bookMatchesSearch(book, booksSearchQuery)) return false;
         const done = bookIsFinished(book);
         if (booksChrome.filter === "reading") return !done;
@@ -12580,51 +12707,63 @@
       paintBooksMonthSelectCheck(head);
       return head;
     }
-    function bindBookCardContextMenus(card, book) {
+    function bindBookCardInteractions(card, book) {
       if (!card || !book) return;
       const titleEl = card.querySelector(".book-title");
       const authorEl = card.querySelector(".book-author");
       const finishEl = card.querySelector(".book-finish");
       const progressStat = card.querySelector(".stat-progress");
       const wordsStat = card.querySelector(".stat-words");
-      card.addEventListener("contextmenu", (ev) => {
+      const editBusySel =
+        ".book-title, .book-author, .book-finish, .stat, .cover-slot, .day-row, .day-row-edit, .month-head, .hint, .book-detail-add, .book-detail-add-form, button, input, textarea, select, a, .book-field-sync, .book-field-edit";
+      // Left-click strip / empty card → book-bar / background color picker.
+      card.addEventListener("click", (ev) => {
+        if (Date.now() < colorMenuIgnoreClickUntil) {
+          ev.stopPropagation();
+          return;
+        }
         const t = ev.target;
         if (!t || !t.closest) return;
         const onStrip = !!t.closest(".book-card-strip");
-        const busy = t.closest(
-          ".book-title, .book-author, .book-finish, .stat, .cover-slot, .day-row, .day-row-edit, .month-head, .hint, .book-detail-add, .book-detail-add-form, button, input, textarea, select, a, .book-field-sync, .book-field-edit"
-        );
+        const busy = t.closest(editBusySel);
         if (!onStrip && busy) return;
         ev.preventDefault();
         ev.stopPropagation();
-        colorMenuIgnoreClickUntil = Date.now() + 450;
         openColorPopover(ev, book, "", card);
       });
-      card.addEventListener("click", (ev) => {
-        if (Date.now() < colorMenuIgnoreClickUntil) ev.stopPropagation();
+      // Right-click card → save single card image (skip live editors / cover / controls).
+      card.addEventListener("contextmenu", (ev) => {
+        const t = ev.target;
+        if (!t || !t.closest) return;
+        if (t.closest(
+          "button, input, textarea, select, a, .book-field-sync, [contenteditable='true'], .cover-slot, .day-row-edit, .book-detail-add-form"
+        )) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        saveSingleBookCardImage(book, card).catch((e) => showErr(e.message || "保存失败"));
       });
-      if (titleEl) titleEl.addEventListener("contextmenu", (ev) => {
+      if (titleEl) titleEl.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
         startRename(titleEl, book);
       });
-      if (authorEl) authorEl.addEventListener("contextmenu", (ev) => {
+      if (authorEl) authorEl.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
         startAuthorEdit(authorEl, book);
       });
-      if (finishEl) finishEl.addEventListener("contextmenu", (ev) => {
+      if (finishEl) finishEl.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
         if (!finishDateIsEditable(book)) return;
         startFinishEdit(finishEl, book);
       });
-      if (progressStat) progressStat.addEventListener("contextmenu", (ev) => {
+      if (progressStat) progressStat.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
         startProgressEdit(progressStat, book);
       });
-      if (wordsStat) wordsStat.addEventListener("contextmenu", (ev) => {
+      if (wordsStat) wordsStat.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
         startWordsEdit(wordsStat, book);
@@ -12679,8 +12818,11 @@
       setGradeFill(strip, book.barColor || "#eac1b7");
       setGradeInk(arrow, book.barColor || "#b5a596");
       setGradeInk(titleEl, bookNameColor(book));
-      bindBookCardContextMenus(card, book);
-      arrow.addEventListener("click", () => toggleDetail(arrow, detail, book));
+      bindBookCardInteractions(card, book);
+      arrow.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        toggleDetail(arrow, detail, book);
+      });
       const item = document.createElement("div");
       item.className = "book-item";
       item.dataset.bookId = String(book.id);
@@ -12719,7 +12861,11 @@
         const id = String(book.id || "");
         if (!id) return;
         if (booksHideOn && bookVis[id]) return;
-        bookVis[id] = { cal: book.showCal !== false, card: book.showCard !== false };
+        bookVis[id] = {
+          cal: book.showCal !== false,
+          card: book.showCard !== false,
+          ticket: book.showTicket !== false
+        };
       });
       if (!all.length) {
         box.innerHTML = '<p class="hint">还没有书籍记录。同步微信读书或手动添加后会出现在这里。</p>';
@@ -13542,7 +13688,7 @@
         const fresh = row.cloneNode(true);
         delete fresh.dataset.editBound;
         row.replaceWith(fresh);
-        fresh.addEventListener("contextmenu", (ev) => {
+        fresh.addEventListener("click", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
           openDayRowEdit(detail, book, fresh);
@@ -14688,9 +14834,11 @@
     function paintTrackTitles(title) {
       const t = normalizeTrackTitle(title == null ? trackTitlePref : title);
       document.querySelectorAll(".month-panel.track-export .portrait-month-name").forEach((el) => {
+        // Don't clobber an in-progress inline edit (prompt is broken in WKWebView).
+        if (el.isContentEditable || el.dataset.editing === "1") return;
         el.textContent = t;
-        el.title = "右键编辑标题";
-        el.style.cursor = "context-menu";
+        el.title = "左键编辑标题";
+        el.style.cursor = "pointer";
       });
     }
     function fillTrackExportHead(panel, payload) {
@@ -14699,9 +14847,11 @@
       const dateEl = panel.querySelector(".portrait-date");
       const headEl = panel.querySelector(".portrait-side-head");
       if (nameEl) {
-        nameEl.textContent = normalizeTrackTitle(trackTitlePref);
-        nameEl.title = "右键编辑标题";
-        nameEl.style.cursor = "context-menu";
+        if (!(nameEl.isContentEditable || nameEl.dataset.editing === "1")) {
+          nameEl.textContent = normalizeTrackTitle(trackTitlePref);
+          nameEl.title = "左键编辑标题";
+          nameEl.style.cursor = "pointer";
+        }
       }
       if (dateEl) {
         dateEl.textContent = trackRangeSlash(
@@ -14711,19 +14861,78 @@
       }
       if (headEl) headEl.textContent = trackHeadText(payload);
     }
-    document.addEventListener("contextmenu", (ev) => {
-      const nameEl = ev.target && ev.target.closest
-        ? ev.target.closest(".month-panel.track-export .portrait-month-name")
-        : null;
-      if (!nameEl) return;
+    /** Inline title edit — window.prompt is a silent no-op in macOS WKWebView. */
+    function startTrackTitleEdit(nameEl) {
+      if (!nameEl || nameEl.isContentEditable || nameEl.dataset.editing === "1") return;
+      nameEl.dataset.editing = "1";
+      const prev = normalizeTrackTitle(trackTitlePref);
+      nameEl.textContent = prev;
+      nameEl.contentEditable = "true";
+      nameEl.spellcheck = false;
+      nameEl.title = "";
+      nameEl.style.cursor = "text";
+      nameEl.focus();
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(nameEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) {}
+      let done = false;
+      const finish = (save) => {
+        if (done) return;
+        done = true;
+        nameEl.removeEventListener("keydown", onKey);
+        nameEl.removeEventListener("blur", onBlur);
+        nameEl.removeEventListener("paste", onPaste);
+        nameEl.contentEditable = "false";
+        delete nameEl.dataset.editing;
+        nameEl.title = "左键编辑标题";
+        nameEl.style.cursor = "pointer";
+        const raw = String(nameEl.innerText || nameEl.textContent || "").replace(/\s+/g, " ").trim();
+        if (!save) {
+          nameEl.textContent = prev;
+          return;
+        }
+        const t = persistTrackTitle(raw);
+        paintTrackTitles(t);
+        if (typeof schedulePlannerScale === "function") schedulePlannerScale();
+      };
+      function onKey(ev) {
+        if (ev.isComposing || ev.keyCode === 229) return;
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          ev.stopPropagation();
+          finish(true);
+        } else if (ev.key === "Escape") {
+          ev.preventDefault();
+          ev.stopPropagation();
+          finish(false);
+        }
+      }
+      function onPaste(ev) {
+        ev.preventDefault();
+        const text = String((ev.clipboardData || window.clipboardData).getData("text") || "")
+          .replace(/\s+/g, " ").trim().slice(0, TRACK_TITLE_MAX);
+        try { document.execCommand("insertText", false, text); } catch (e) {
+          nameEl.textContent = text;
+        }
+      }
+      function onBlur() { finish(true); }
+      nameEl.addEventListener("keydown", onKey);
+      nameEl.addEventListener("paste", onPaste);
+      nameEl.addEventListener("blur", onBlur);
+    }
+    document.addEventListener("click", (ev) => {
+      const t = ev.target;
+      if (!t || !t.closest) return;
+      const nameEl = t.closest(".portrait-month-name");
+      if (!nameEl || !nameEl.closest(".month-panel.track-export")) return;
+      if (nameEl.isContentEditable || nameEl.dataset.editing === "1") return;
       ev.preventDefault();
       ev.stopPropagation();
-      const cur = normalizeTrackTitle(trackTitlePref);
-      const next = window.prompt("日志标题", cur);
-      if (next == null) return;
-      const t = persistTrackTitle(next);
-      paintTrackTitles(t);
-      if (typeof schedulePlannerScale === "function") schedulePlannerScale();
+      startTrackTitleEdit(nameEl);
     });
     function appendRecRow(parent, rec, extraClass) {
       const row = document.createElement("div");
@@ -14935,15 +15144,15 @@
           }
           bar.addEventListener("click", (ev) => {
             ev.stopPropagation();
-            // Context menu on macOS is often followed by a click; don't open the card.
+            // Context menu on macOS is often followed by a click; don't open the color picker.
             if (Date.now() < barClickSuppressUntil) return;
-            openCardPopup(seg.book, bar);
+            openColorPopover(ev, seg.book, slice[seg.start].date, bar);
           });
           bar.addEventListener("contextmenu", (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
             barClickSuppressUntil = Date.now() + 450;
-            openColorPopover(ev, seg.book, slice[seg.start].date, bar);
+            openCardPopup(seg.book, bar);
           });
           bars.appendChild(bar);
         });
@@ -15902,7 +16111,7 @@
       if (strip) setGradeFill(strip, book.barColor || "#eac1b7");
       if (arrow) setGradeInk(arrow, book.barColor || "#b5a596");
       if (titleEl) setGradeInk(titleEl, bookNameColor(book));
-      bindBookCardContextMenus(card, book);
+      bindBookCardInteractions(card, book);
       if (arrow && detail) {
         arrow.addEventListener("click", (ev) => {
           ev.stopPropagation();
@@ -15938,7 +16147,7 @@
       closeMenu();
       closeToneMenu();
       closeGradeMenu();
-      // Right-click can synthesize a following click on some platforms; ignore it briefly.
+      // Opening via contextmenu can synthesize a following click; ignore it briefly.
       cardPopupIgnoreClickUntil = Date.now() + 450;
       const id = String((book && book.id) || "");
       if (!id) return;
@@ -15972,6 +16181,8 @@
       closeToneMenu();
       closeGradeMenu();
       closeCardPopup();
+      // Same-click document listener would close the menu; ignore briefly.
+      colorMenuIgnoreClickUntil = Date.now() + 450;
       colorTarget = "bar";
       // Persist effective title ink in the popover so 色号 matches on-screen titles
       // (stored default #f7f7f5 is only a sentinel; display uses bar-hue muted ink).
@@ -17171,7 +17382,6 @@
       }
     }
     async function saveSingleBookCardImage(book, card, opts) {
-      if (viewMode !== "books") return;
       if (!book || !card) {
         showErr("没有可导出的卡片");
         return;
@@ -18748,6 +18958,7 @@
     document.getElementById("saveBooksImg").onclick = () => { saveBooksImage().catch((e) => showErr(e.message)); };
     document.getElementById("saveTicketsImg").onclick = () => { saveTicketsImage().catch((e) => showErr(e.message)); };
     document.getElementById("ticketsPeriodBtn").onclick = () => { setTicketsPeriod(!ticketsPeriodOn); };
+    document.getElementById("ticketsHideBtn").onclick = () => { setTicketsHide(!ticketsHideOn); };
     document.getElementById("ticketsSelectBtn").onclick = () => { setTicketsSelect(!ticketsSelectOn); };
     document.getElementById("ticketsPaletteBtn").onclick = (ev) => {
       ev.preventDefault();
@@ -18782,7 +18993,7 @@
     document.getElementById("ticketsTools").addEventListener("click", (ev) => {
       const btn = ev.target.closest("button");
       if (!btn || !document.getElementById("ticketsTools").contains(btn)) return;
-      if (btn.id === "saveTicketsImg" || btn.id === "ticketsPeriodBtn" || btn.id === "ticketsSelectBtn" || btn.id === "ticketsPaletteBtn") return;
+      if (btn.id === "saveTicketsImg" || btn.id === "ticketsPeriodBtn" || btn.id === "ticketsHideBtn" || btn.id === "ticketsSelectBtn" || btn.id === "ticketsPaletteBtn") return;
       const sort = btn.getAttribute("data-tickets-sort");
       const order = btn.getAttribute("data-tickets-order");
       const filter = btn.getAttribute("data-tickets-filter");
@@ -18854,7 +19065,8 @@
       });
     })();
     document.getElementById("booksPeriodBtn").onclick = () => { setBooksPeriod(!booksPeriodOn); };
-    document.getElementById("booksEstimateBtn").onclick = () => { setBooksEstimate(!booksEstimateOn); };
+    document.getElementById("booksEstimateBtn").onclick = () => { setBooksEstimate(true); };
+    document.getElementById("booksDaysBtn").onclick = () => { setBooksEstimate(false); };
     document.getElementById("booksDetailsBtn").onclick = () => { setBooksDetails(!booksDetailsOn); };
     document.getElementById("booksSlotSpeed").onclick = () => { setBooksSpeed(true); };
     document.getElementById("booksSlotDate").onclick = () => { setBooksSpeed(false); };
@@ -19307,6 +19519,12 @@
         periodBtn.setAttribute("aria-pressed", ticketsPeriodOn ? "true" : "false");
         periodBtn.title = ticketsPeriodOn ? "关闭按月分段" : "按月份分段显示票根";
       }
+      const hideBtn = document.getElementById("ticketsHideBtn");
+      if (hideBtn) {
+        hideBtn.classList.toggle("on", !!ticketsHideOn);
+        hideBtn.setAttribute("aria-pressed", ticketsHideOn ? "true" : "false");
+        hideBtn.title = ticketsHideOn ? "应用隐藏并收起复选框" : "选择要在月历、卡片、票根中隐藏的书";
+      }
       const selBtn = document.getElementById("ticketsSelectBtn");
       if (selBtn) {
         selBtn.classList.toggle("on", !!ticketsSelectOn);
@@ -19314,6 +19532,7 @@
         selBtn.title = ticketsSelectOn ? "收起选择框" : "选择要导出的票根";
       }
       document.body.classList.toggle("tickets-select-on", !!ticketsSelectOn && viewMode === "tickets");
+      document.body.classList.toggle("tickets-hide-on", !!ticketsHideOn && viewMode === "tickets");
       document.body.classList.toggle("tickets-period-on", !!ticketsPeriodOn && viewMode === "tickets");
       const zoom = document.getElementById("ticketsViewZoom");
       if (zoom) zoom.value = String(ticketsViewZoomPct);
@@ -19355,7 +19574,7 @@
         const ar = author.getBoundingClientRect();
         const mr = meta.getBoundingClientRect();
         if (!(sr.height > 1)) return;
-        // Vertical center of the spacing between the two rows.
+        // Vertical center of the spacing between the two rows (mid-side notches).
         const gapMid = (ar.bottom + mr.top) / 2;
         const frac = (gapMid - sr.top) / sr.height;
         const tc = frac * 72.87;
@@ -19448,6 +19667,26 @@
       if (!ticketsSelectOn) ticketsSelected.clear();
       paintTicketsChrome();
       if (viewMode === "tickets") renderTickets();
+    }
+    async function setTicketsHide(on) {
+      if (ticketsHideOn && !on) {
+        const btn = document.getElementById("ticketsHideBtn");
+        if (btn) btn.disabled = true;
+        try {
+          await persistBookVisibility();
+          monthCache.clear();
+        } catch (e) {
+          showErr(e.message || "隐藏设置保存失败");
+          if (btn) btn.disabled = false;
+          return;
+        }
+        if (btn) btn.disabled = false;
+      }
+      const next = !!on;
+      const needListChange = viewMode === "tickets" && anyTicketHiddenBooks();
+      ticketsHideOn = next;
+      paintTicketsChrome();
+      if (needListChange) renderTickets();
     }
     /** Chunky 5-point star from 票根.svg polygon (normalized ×100). */
     const TICKET_STAR_POLY = "84,0 112,50 168,61 129,103 136,160 84,136 32,160 39,103 0,61 56,50 84,0";
@@ -19573,6 +19812,7 @@
         '<div class="ticket-recorder" data-field="recorder" title="记录人">' +
         (m.recorder ? escapeHtml(m.recorder) : '<span class="ticket-empty">-</span>') +
         "</div></div></div></div></article>";
+      item.insertBefore(hideChecksFor(book, { tickets: true }), item.firstChild);
       const stub = item.querySelector(".ticket-stub");
       const check = item.querySelector(".ticket-check");
       if (check) {
@@ -19928,12 +20168,22 @@
       paintTicketsChrome();
       box.innerHTML = "";
       const all = (bookData && bookData.books) || [];
+      all.forEach((book) => {
+        const id = String(book.id || "");
+        if (!id) return;
+        if (ticketsHideOn && bookVis[id]) return;
+        bookVis[id] = {
+          cal: book.showCal !== false,
+          card: book.showCard !== false,
+          ticket: book.showTicket !== false
+        };
+      });
       if (!all.length) {
         box.innerHTML = '<p class="hint">还没有书籍记录。同步微信读书或手动添加后会出现在这里。</p>';
         finishScroll();
         return;
       }
-      const books = visibleBooks(all);
+      const books = visibleBooks(all, { forTickets: true });
       if (!books.length) {
         box.innerHTML = '<p class="hint">没有符合筛选的书籍。</p>';
         finishScroll();
@@ -19955,9 +20205,11 @@
       const box = document.getElementById("bookView");
       if (!box) return [];
       return Array.from(box.querySelectorAll(".ticket-item")).filter((item) => {
-        if (!selectedOnly) return true;
         const id = String(item.dataset.bookId || "");
-        return ticketsSelected.has(id);
+        if (selectedOnly && !ticketsSelected.has(id)) return false;
+        // Match exportableBookCards: skip ticket-hidden even if shown in hide mode.
+        if (id && bookVis[id] && bookVis[id].ticket === false) return false;
+        return true;
       }).map((item) => item.querySelector(".ticket-stub")).filter(Boolean);
     }
     function cloneTicketForExport(stub) {
@@ -19971,6 +20223,9 @@
         const span = document.createElement("span");
         span.className = btn.className;
         span.setAttribute("aria-hidden", "true");
+        // Buttons are inline-block by UA; plain spans are inline and html2canvas
+        // then mishandles width/height + flex align-items vs the label.
+        span.style.display = "inline-block";
         span.innerHTML = btn.innerHTML;
         btn.replaceWith(span);
       });
@@ -20064,12 +20319,10 @@
       return out;
     }
     /**
-     * html2canvas 1.4.1's iframe style clone often drops calc() (esp. `20px / 9`)
-     * and can miss adjacent-sibling margin overrides. Preview keeps those gaps;
-     * export then paints with bare `.ticket-perf { margin: 6px }` / zero row-gap /
-     * shorter padding — stub looks a bit short (译者→divider most obvious after
-     * gap4 moved onto `.ticket-meta-line + .ticket-perf`). Bake used px from the
-     * live stub onto the export tree so capture does not depend on those rules.
+     * html2canvas 1.4.1 drops calc() (esp. `20px / 9`), adjacent-sibling perf
+     * margins, and object-fit:cover (stretches imgs). SVG stars also collapse to
+     * a thin bottom-aligned smear. Bake px + pre-rasterized bitmaps from the
+     * live stub so capture matches preview geometry.
      */
     function bakeTicketExportSpacing(liveStub, targetStub) {
       if (!liveStub || !targetStub) return;
@@ -20084,41 +20337,400 @@
       copyProps(liveStub, targetStub, [
         "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"
       ]);
-      const liveCover = liveStub.querySelector(".ticket-cover");
-      const destCover = targetStub.querySelector(".ticket-cover");
-      copyProps(liveCover, destCover, [
-        "marginTop", "marginRight", "marginBottom", "marginLeft"
-      ]);
-      // Cover height comes from aspect-ratio; bake layout px (offset*, not
-      // getBoundingClientRect — tickets preview may be transform-scaled).
-      if (liveCover && destCover) {
-        const rw = liveCover.offsetWidth;
-        const rh = liveCover.offsetHeight;
-        if (rw > 0) destCover.style.width = rw + "px";
-        if (rh > 0) {
-          destCover.style.height = rh + "px";
-          destCover.style.aspectRatio = "auto";
-        }
-      }
+      bakeTicketExportCover(liveStub, targetStub);
       copyProps(liveStub.querySelector(".ticket-author"), targetStub.querySelector(".ticket-author"), [
         "marginTop", "marginRight", "marginBottom", "marginLeft"
       ]);
       copyProps(liveStub.querySelector(".ticket-meta-line"), targetStub.querySelector(".ticket-meta-line"), [
         "marginTop", "marginRight", "marginBottom", "marginLeft"
       ]);
-      copyProps(liveStub.querySelector(".ticket-facts"), targetStub.querySelector(".ticket-facts"), [
+      const liveFacts = liveStub.querySelector(".ticket-facts");
+      const destFacts = targetStub.querySelector(".ticket-facts");
+      copyProps(liveFacts, destFacts, [
         "marginTop", "marginRight", "marginBottom", "marginLeft", "rowGap", "columnGap"
       ]);
       copyProps(liveStub.querySelector(".ticket-foot"), targetStub.querySelector(".ticket-foot"), [
         "marginTop", "marginRight", "marginBottom", "marginLeft",
         "paddingTop", "paddingBottom"
       ]);
+      bakeTicketExportPerfMargins(liveStub, targetStub);
+      bakeTicketExportRatingAlign(liveStub, targetStub);
+      // Rating margin-top carries the 阅读时间→评分 midpoint gap (see CSS).
+      const liveRating = liveStub.querySelector(".ticket-rating-row");
+      const destRating = targetStub.querySelector(".ticket-rating-row");
+      if (liveRating && destRating) {
+        copyProps(liveRating, destRating, [
+          "marginTop", "marginRight", "marginBottom", "marginLeft"
+        ]);
+      }
+      // Preview CSS is SoT; live→px bake above already matches. Do not add
+      // optical Y nudges here — they stacked with preview cumulative downs.
+    }
+    /** object-fit:cover → pre-cropped bitmap (html2canvas stretches otherwise). */
+    function bakeTicketExportCover(liveStub, targetStub) {
+      const liveCover = liveStub.querySelector(".ticket-cover");
+      const destCover = targetStub.querySelector(".ticket-cover");
+      if (!liveCover || !destCover) return;
+      const cs = window.getComputedStyle(liveCover);
+      ["marginTop", "marginRight", "marginBottom", "marginLeft"].forEach((p) => {
+        if (cs[p]) destCover.style[p] = cs[p];
+      });
+      destCover.style.position = "relative";
+      destCover.style.overflow = "hidden";
+      destCover.style.display = "block";
+      const rw = liveCover.offsetWidth;
+      const rh = liveCover.offsetHeight;
+      if (rw > 0) destCover.style.width = rw + "px";
+      if (rh > 0) {
+        destCover.style.height = rh + "px";
+        destCover.style.aspectRatio = "auto";
+        destCover.style.flex = "0 0 auto";
+      }
+      const liveImg = liveCover.querySelector("img.cover");
+      const destImg = destCover.querySelector("img.cover");
+      if (!liveImg || !destImg || !(rw > 0) || !(rh > 0)) return;
+      const nw = liveImg.naturalWidth || 0;
+      const nh = liveImg.naturalHeight || 0;
+      destImg.style.position = "absolute";
+      destImg.style.left = "0";
+      destImg.style.top = "0";
+      destImg.style.right = "auto";
+      destImg.style.bottom = "auto";
+      destImg.style.width = "100%";
+      destImg.style.height = "100%";
+      destImg.style.maxWidth = "none";
+      destImg.style.maxHeight = "none";
+      destImg.style.border = "0";
+      destImg.style.borderRadius = "0";
+      if (nw > 0 && nh > 0) {
+        try {
+          const mag = 2;
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(rw * mag));
+          c.height = Math.max(1, Math.round(rh * mag));
+          const ctx = c.getContext("2d");
+          if (ctx) {
+            const fit = Math.max(c.width / nw, c.height / nh);
+            const dw = nw * fit;
+            const dh = nh * fit;
+            const dx = (c.width - dw) / 2;
+            const dy = (c.height - dh) / 2;
+            ctx.clearRect(0, 0, c.width, c.height);
+            ctx.drawImage(liveImg, dx, dy, dw, dh);
+            destImg.src = c.toDataURL("image/png");
+            // Already cropped — fill the box; avoids a second object-fit pass.
+            destImg.style.objectFit = "fill";
+            destImg.style.objectPosition = "center";
+            return;
+          }
+        } catch (_) {
+          // Tainted canvas — fall through to explicit cover styles.
+        }
+      }
+      destImg.style.objectFit = "cover";
+      destImg.style.objectPosition = "50% 50%";
+    }
+    /** Live stub CSS-px scale (page zoom / transform); getBoundingClientRect / zoom. */
+    function ticketStubCssZoom(stub) {
+      if (!stub) return 1;
+      const ow = stub.offsetWidth || 0;
+      if (!(ow > 0)) return 1;
+      const zw = stub.getBoundingClientRect().width / ow;
+      return Number.isFinite(zw) && zw > 0 ? zw : 1;
+    }
+    /**
+     * Bake each .ticket-perf as a non-collapsing spacer + absolutely placed dash.
+     * html2canvas collapses zero-height margin pairs and draws the 译者线 too high;
+     * offsetTop also truncates fractional calc(6px+20px/9) gaps.
+     */
+    function bakeTicketExportPerfMargins(liveStub, targetStub) {
       const livePerfs = liveStub.querySelectorAll(".ticket-perf");
       const destPerfs = targetStub.querySelectorAll(".ticket-perf");
+      if (!livePerfs.length || !destPerfs.length) return;
+      const zoom = ticketStubCssZoom(liveStub);
+      const liveTitle = liveStub.querySelector(".ticket-title-row");
+      const liveAuthor = liveStub.querySelector(".ticket-author");
+      const liveMeta = liveStub.querySelector(".ticket-meta-line");
+      const liveFacts = liveStub.querySelector(".ticket-facts");
+      const liveRating = liveStub.querySelector(".ticket-rating-row");
+      const liveFoot = liveStub.querySelector(".ticket-foot");
+      const pairs = [
+        [liveTitle, liveAuthor],
+        [liveMeta, liveFacts],
+        [liveRating, liveFoot]
+      ];
       for (let i = 0; i < livePerfs.length && i < destPerfs.length; i++) {
-        copyProps(livePerfs[i], destPerfs[i], [
-          "marginTop", "marginRight", "marginBottom", "marginLeft", "width"
-        ]);
+        const livePerf = livePerfs[i];
+        const destPerf = destPerfs[i];
+        const liveCs = window.getComputedStyle(livePerf);
+        const before = pairs[i] && pairs[i][0];
+        const after = pairs[i] && pairs[i][1];
+        let gapTop = parseFloat(liveCs.marginTop) || 0;
+        let gapBot = parseFloat(liveCs.marginBottom) || 0;
+        if (before && after) {
+          const br = before.getBoundingClientRect();
+          const pr = livePerf.getBoundingClientRect();
+          const ar = after.getBoundingClientRect();
+          const gt = (pr.top - br.bottom) / zoom;
+          const gb = (ar.top - pr.bottom) / zoom;
+          if (Number.isFinite(gt) && gt >= 0) gapTop = gt;
+          if (Number.isFinite(gb) && gb >= 0) gapBot = gb;
+        }
+        // Mid (译者↔ISBN) + foot dividers are authored equal; average out
+        // border-box measurement noise so the dash stays optically centered.
+        // First divider stays unequal (lower 书名线: more above than below).
+        if (i === 1 || i === 2) {
+          const midGap = (gapTop + gapBot) / 2;
+          if (Number.isFinite(midGap) && midGap >= 0) {
+            gapTop = midGap;
+            gapBot = midGap;
+          }
+        }
+        const lineW = Math.max(parseFloat(liveCs.borderTopWidth) || 0, 1.2);
+        const lineStyle = liveCs.borderTopStyle || "dashed";
+        const lineColor = liveCs.borderTopColor || "rgba(58,50,44,0.5)";
+        // Horizontal bleed (width/margins) matches live; vertical uses a solid
+        // spacer so margins cannot collapse through the dash in html2canvas.
+        destPerf.style.boxSizing = "border-box";
+        destPerf.style.display = "block";
+        destPerf.style.position = "relative";
+        destPerf.style.flex = "0 0 auto";
+        destPerf.style.alignSelf = "stretch";
+        destPerf.style.width = liveCs.width;
+        destPerf.style.marginTop = "0";
+        destPerf.style.marginBottom = "0";
+        destPerf.style.marginLeft = liveCs.marginLeft;
+        destPerf.style.marginRight = liveCs.marginRight;
+        destPerf.style.padding = "0";
+        destPerf.style.border = "0";
+        destPerf.style.borderTop = "0";
+        destPerf.style.height = (gapTop + lineW + gapBot) + "px";
+        destPerf.style.minHeight = (gapTop + lineW + gapBot) + "px";
+        destPerf.style.overflow = "visible";
+        destPerf.innerHTML = "";
+        const line = destPerf.ownerDocument.createElement("div");
+        line.setAttribute("aria-hidden", "true");
+        line.style.cssText = [
+          "position:absolute",
+          "left:0",
+          "right:0",
+          "top:" + gapTop + "px",
+          "height:0",
+          "margin:0",
+          "padding:0",
+          "border:0",
+          "border-top:" + lineW + "px " + lineStyle + " " + lineColor,
+          "pointer-events:none"
+        ].join(";");
+        destPerf.appendChild(line);
+      }
+    }
+    /** Draw one ticket star to a PNG data URL (html2canvas-safe). */
+    function ticketStarRasterDataUrl(cssW, cssH, fill, mutedFill, half) {
+      const mag = 3;
+      const w = Math.max(1, Math.round(cssW * mag));
+      const h = Math.max(1, Math.round(cssH * mag));
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      if (!ctx) return "";
+      const pts = TICKET_STAR_POLY.split(/\s+/).map((p) => {
+        const xy = p.split(",");
+        return { x: (+xy[0] / 168) * w, y: (+xy[1] / 160) * h };
+      });
+      function paint(color) {
+        ctx.beginPath();
+        pts.forEach((p, i) => {
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+      if (half) {
+        paint(mutedFill || "rgba(58,50,44,0.28)");
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, w / 2, h);
+        ctx.clip();
+        paint(fill);
+        ctx.restore();
+      } else {
+        paint(fill);
+      }
+      return c.toDataURL("image/png");
+    }
+    /**
+     * Lock label↔stars vertical midlines + stretch gaps so stars’ right edge
+     * matches 记录人 / .ticket-foot. html2canvas ignores flex gap / align-items
+     * and offsetWidth truncates 12.4→12 (≈4px short across 10 stars).
+     */
+    function bakeTicketExportRatingAlign(liveStub, targetStub) {
+      if (!liveStub || !targetStub) return;
+      const liveRow = liveStub.querySelector(".ticket-rating-row");
+      const destRow = targetStub.querySelector(".ticket-rating-row");
+      if (!liveRow || !destRow) return;
+      const liveStars = liveRow.querySelector(".ticket-stars");
+      const destStars = destRow.querySelector(".ticket-stars");
+      const liveLab = liveRow.querySelector(".ticket-lab");
+      const destLab = destRow.querySelector(".ticket-lab");
+      const liveStarBtns = liveRow.querySelectorAll(".ticket-star");
+      const destStarEls = destRow.querySelectorAll(".ticket-star");
+      const liveFoot = liveStub.querySelector(".ticket-foot");
+      const firstLive = liveStarBtns[0];
+      const zoom = ticketStubCssZoom(liveStub);
+      const rowCs = window.getComputedStyle(liveRow);
+      const nStars = destStarEls.length || liveStarBtns.length || 10;
+
+      const liveStarCs = firstLive ? window.getComputedStyle(firstLive) : null;
+      // Fractional CSS size — never offsetWidth (truncates 12.4px → 12).
+      let starW = liveStarCs ? parseFloat(liveStarCs.width) : 0;
+      let starH = liveStarCs ? parseFloat(liveStarCs.height) : 0;
+      if (!(starW > 0) && firstLive) starW = firstLive.getBoundingClientRect().width / zoom;
+      if (!(starH > 0) && firstLive) starH = firstLive.getBoundingClientRect().height / zoom;
+      if (!(starW > 0)) starW = 12.4;
+      if (!(starH > 0)) starH = starW * 1.6 / 1.68;
+
+      const rowH = Math.max(
+        liveRow.getBoundingClientRect().height / zoom,
+        starH,
+        parseFloat(rowCs.minHeight) || 0,
+        18
+      );
+
+      let labW = 0;
+      let labH = 0;
+      if (liveLab) {
+        const lr = liveLab.getBoundingClientRect();
+        labW = lr.width / zoom;
+        labH = lr.height / zoom;
+      }
+      if (!(labW > 0) && liveLab) labW = liveLab.offsetWidth || 0;
+      if (!(labH > 0)) labH = Math.min(rowH, 14);
+
+      // Stretch label↔star and star↔star gaps so last star right == foot right.
+      const rowLeft = liveRow.getBoundingClientRect().left;
+      const footRight = liveFoot
+        ? liveFoot.getBoundingClientRect().right
+        : liveRow.getBoundingClientRect().right;
+      const contentSpan = (footRight - rowLeft) / zoom;
+      const gaps = Math.max(nStars, 1); // label→first + (nStars-1) star gaps == nStars gaps
+      let gap = (contentSpan - labW - nStars * starW) / gaps;
+      if (!(gap > 0) || !Number.isFinite(gap)) {
+        const g = parseFloat(rowCs.columnGap || rowCs.gap) || 5.23;
+        gap = g;
+      }
+
+      // Absolute geometry — html2canvas-safe (no flex gap / align-items).
+      destRow.style.display = "block";
+      destRow.style.position = "relative";
+      destRow.style.boxSizing = "border-box";
+      destRow.style.width = "100%";
+      destRow.style.maxWidth = "100%";
+      destRow.style.padding = "0";
+      destRow.style.gap = "0";
+      destRow.style.columnGap = "0";
+      destRow.style.rowGap = "0";
+      destRow.style.minHeight = rowH + "px";
+      destRow.style.height = rowH + "px";
+      destRow.style.overflow = "visible";
+
+      const labTop = Math.max(0, (rowH - labH) / 2);
+      const starTop = Math.max(0, (rowH - starH) / 2);
+
+      if (destLab) {
+        destLab.style.display = "block";
+        destLab.style.position = "absolute";
+        destLab.style.left = "0";
+        /* Export-only: nudge 「个人评分:」 up 1.5px; stars keep starTop. */
+        destLab.style.top = (labTop - 1.5) + "px";
+        destLab.style.margin = "0";
+        destLab.style.padding = "0";
+        destLab.style.width = labW + "px";
+        destLab.style.height = labH + "px";
+        destLab.style.lineHeight = labH + "px";
+        destLab.style.whiteSpace = "nowrap";
+        destLab.style.flex = "none";
+        if (liveLab) {
+          const labCs = window.getComputedStyle(liveLab);
+          destLab.style.fontSize = labCs.fontSize;
+          destLab.style.fontWeight = labCs.fontWeight;
+          destLab.style.color = labCs.color;
+          destLab.style.fontFamily = labCs.fontFamily;
+        }
+      }
+
+      if (destStars) {
+        destStars.style.display = "block";
+        destStars.style.position = "absolute";
+        destStars.style.left = (labW + gap) + "px";
+        destStars.style.top = starTop + "px";
+        destStars.style.margin = "0";
+        destStars.style.padding = "0";
+        destStars.style.gap = "0";
+        destStars.style.columnGap = "0";
+        destStars.style.rowGap = "0";
+        destStars.style.height = starH + "px";
+        destStars.style.width = (nStars * starW + Math.max(0, nStars - 1) * gap) + "px";
+        destStars.style.maxWidth = "none";
+        destStars.style.flex = "none";
+        destStars.style.fontSize = "0";
+        destStars.style.lineHeight = "0";
+        destStars.style.whiteSpace = "nowrap";
+      }
+
+      const inkOn = cssColor((ticketStore.palette || {}).ink || TICKET_PALETTE_DEFAULT.ink);
+      const inkOff = "rgba(58, 50, 44, 0.28)";
+      let muted = inkOff;
+      for (let i = 0; i < liveStarBtns.length; i++) {
+        if (!liveStarBtns[i].classList.contains("on") && !liveStarBtns[i].classList.contains("half")) {
+          muted = window.getComputedStyle(liveStarBtns[i]).color || inkOff;
+          break;
+        }
+      }
+
+      for (let i = 0; i < destStarEls.length; i++) {
+        const destStar = destStarEls[i];
+        const liveStar = liveStarBtns[i] || firstLive;
+        const w = starW;
+        const h = starH;
+        const isOn = !!(liveStar && liveStar.classList.contains("on"));
+        const isHalf = !!(liveStar && liveStar.classList.contains("half"));
+        let fill = muted;
+        if (isOn) fill = window.getComputedStyle(liveStar).color || inkOn;
+        else if (isHalf) fill = inkOn;
+        const dataUrl = ticketStarRasterDataUrl(w, h, fill, muted, isHalf);
+        destStar.innerHTML = "";
+        destStar.style.display = "inline-block";
+        destStar.style.position = "relative";
+        destStar.style.flex = "none";
+        destStar.style.margin = "0";
+        destStar.style.marginLeft = (i === 0 ? 0 : gap) + "px";
+        destStar.style.marginRight = "0";
+        destStar.style.padding = "0";
+        destStar.style.border = "0";
+        destStar.style.lineHeight = "0";
+        destStar.style.fontSize = "0";
+        destStar.style.verticalAlign = "top";
+        destStar.style.background = "transparent";
+        destStar.style.width = w + "px";
+        destStar.style.height = h + "px";
+        if (dataUrl) {
+          const img = destStar.ownerDocument.createElement("img");
+          img.src = dataUrl;
+          img.alt = "";
+          img.draggable = false;
+          img.style.display = "block";
+          img.style.width = w + "px";
+          img.style.height = h + "px";
+          img.style.objectFit = "fill";
+          img.style.border = "0";
+          img.style.margin = "0";
+          img.style.padding = "0";
+          destStar.appendChild(img);
+        }
       }
     }
     async function captureOneTicketStubCanvas(stub, scale) {
@@ -20212,6 +20824,7 @@
     }
     async function captureTickets(stubs, opts) {
       opts = opts || {};
+      const transparent = !!opts.transparent;
       const list = stubs && stubs.length ? Array.from(stubs) : null;
       const nodes = ticketsExportNodeList(list);
       if (!nodes.length) throw new Error("没有可保存的票根");
@@ -20221,10 +20834,14 @@
       }
       // Refresh notch masks on live stubs before reading mask URLs.
       syncTicketNotchMasks(document.getElementById("bookView"));
-      // Outer pad ×10 vs prior defaults (12 / 8).
-      const basePad = opts.pad != null ? Math.max(0, Number(opts.pad) || 0) : 12;
+      // Outer pad ×10 vs prior defaults (12 / 8). Transparent single export uses a lighter pad.
+      const basePad = opts.pad != null
+        ? Math.max(0, Number(opts.pad) || 0)
+        : (transparent ? 0 : 12);
       const pad = Math.round(basePad * 10);
-      const fill = cssColor((ticketStore.palette || {}).canvas || TICKET_PALETTE_DEFAULT.canvas);
+      const fill = transparent
+        ? null
+        : cssColor((ticketStore.palette || {}).canvas || TICKET_PALETTE_DEFAULT.canvas);
       const ticketN = nodes.filter((n) => n.kind === "ticket").length;
       const estH = ticketN * 580 + nodes.length * 40 + pad * 2;
       const scale = ticketExportPreferScale(265 + pad * 2, estH);
@@ -20277,20 +20894,40 @@
         if (btn) { btn.disabled = false; btn.textContent = prevLabel; }
       }
     }
-    async function saveSingleTicketImage(book, stub) {
+    async function saveSingleTicketImage(book, stub, opts) {
       if (viewMode !== "tickets") return;
       if (!stub) { showErr("没有可导出的票根"); return; }
+      opts = opts || {};
+      const transparent = !!opts.transparent;
+      const kind = transparent ? "导出" : "保存";
+      const pad = opts.pad != null
+        ? Math.max(0, Math.round(Number(opts.pad) || 0))
+        : (transparent ? 0 : 8);
+      const item = stub.closest && stub.closest(".ticket-item");
+      const action = transparent ? "export" : "save";
+      const btn = item && item.querySelector('.book-card-export-btn[data-card-action="' + action + '"]');
+      const prevLabel = btn ? btn.textContent : kind;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = kind + "中";
+      }
       const status = document.getElementById("status");
       const prevStatus = status ? status.textContent : "";
       showErr("");
-      if (status) status.textContent = "正在导出票根…";
+      if (status) status.textContent = "正在" + kind + "票根…";
       try {
-        const canvas = await withDesktopCapture(() => captureTickets([stub], { pad: 8 }));
+        const canvas = await withDesktopCapture(() =>
+          captureTickets([stub], { pad: pad, transparent: transparent }));
         const blob = await canvasToPngBlob(canvas);
         if (status) status.textContent = await savePngBlob(ticketExportName(book), blob);
       } catch (e) {
-        showErr(e.message || "导出票根失败");
+        showErr(e.message || (kind + "票根失败"));
         if (status) status.textContent = prevStatus;
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = prevLabel;
+        }
       }
     }
     function currentTicketPaletteHex() {
@@ -20461,13 +21098,14 @@
     document.getElementById("booksTools").addEventListener("click", (ev) => {
       const btn = ev.target.closest("button");
       if (!btn || !document.getElementById("booksTools").contains(btn)) return;
-      // 时速/日期 / 完整|简略 have their own handlers; other pills use this path.
+      // 时速/日期 / 预估|天数 / 完整|简略 have their own handlers; other pills use this path.
       if (btn.getAttribute("data-books-slot") != null) return;
+      if (btn.getAttribute("data-books-estimate") != null) return;
       if (btn.getAttribute("data-books-density") != null) {
         setBooksCardDensity(btn.getAttribute("data-books-density"));
         return;
       }
-      if (btn.id === "saveBooksImg" || btn.id === "booksPeriodBtn" || btn.id === "booksEstimateBtn" || btn.id === "booksDetailsBtn" || btn.id === "booksHideBtn" || btn.id === "booksSelectBtn") return;
+      if (btn.id === "saveBooksImg" || btn.id === "booksPeriodBtn" || btn.id === "booksDetailsBtn" || btn.id === "booksHideBtn" || btn.id === "booksSelectBtn") return;
       const sort = btn.getAttribute("data-books-sort");
       const order = btn.getAttribute("data-books-order");
       const filter = btn.getAttribute("data-books-filter");

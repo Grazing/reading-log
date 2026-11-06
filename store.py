@@ -2302,7 +2302,7 @@ def is_excluded_book(book_id: str) -> bool:
 
 
 def book_visibility_map() -> dict[str, dict]:
-    """Books hidden from 月历 and/or 卡片. Missing ids stay visible in both."""
+    """Books hidden from 月历 / 卡片 / 票根. Missing ids stay visible in all three."""
     raw = get_setting("bookVisibility", "")
     try:
         obj = json.loads(raw) if raw else {}
@@ -2317,14 +2317,21 @@ def book_visibility_map() -> dict[str, dict]:
             continue
         cal = bool(flags.get("cal", True))
         card = bool(flags.get("card", True))
-        if cal and card:
+        ticket = bool(flags.get("ticket", True))
+        if cal and card and ticket:
             continue
-        out[bid] = {"cal": cal, "card": card}
+        out[bid] = {"cal": cal, "card": card, "ticket": ticket}
     return out
 
 
 def hidden_book_ids(mode: str) -> set[str]:
-    key = "card" if str(mode or "") == "card" else "cal"
+    m = str(mode or "")
+    if m == "card":
+        key = "card"
+    elif m == "ticket":
+        key = "ticket"
+    else:
+        key = "cal"
     return {bid for bid, flags in book_visibility_map().items() if not flags.get(key, True)}
 
 
@@ -2339,10 +2346,11 @@ def set_book_visibility(body) -> dict[str, dict]:
             continue
         cal = bool(flags.get("cal", True))
         card = bool(flags.get("card", True))
-        if cal and card:
+        ticket = bool(flags.get("ticket", True))
+        if cal and card and ticket:
             current.pop(bid, None)
         else:
-            current[bid] = {"cal": cal, "card": card}
+            current[bid] = {"cal": cal, "card": card, "ticket": ticket}
     set_setting("bookVisibility", json.dumps(current, ensure_ascii=False))
     return current
 
@@ -3851,6 +3859,7 @@ def books_payload() -> dict:
                 "progressCustom": progress_custom,
                 "showCal": vis.get("cal", True),
                 "showCard": vis.get("card", True),
+                "showTicket": vis.get("ticket", True),
                 "finished": finished,
                 "wordCount": int(item.get("word_count") or 0),
                 "author": item.get("author") or "",

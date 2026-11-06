@@ -245,6 +245,16 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
                 meta["lastOpen"] = extra["lastOpen"]
             if extra.get("finishDate"):
                 meta["finishDate"] = extra["finishDate"]
+            if extra.get("isbn"):
+                meta["isbn"] = extra["isbn"]
+            if extra.get("publisher"):
+                meta["publisher"] = extra["publisher"]
+            if extra.get("translator"):
+                meta["translator"] = extra["translator"]
+            if extra.get("price"):
+                meta["price"] = extra["price"]
+            if extra.get("publishYear"):
+                meta["publishYear"] = extra["publishYear"]
             title = extra.get("title") or book.get("title") or ""
         except Exception:
             title = book.get("title") or ""
@@ -286,6 +296,21 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
             fd = weread.pick_finish_date(info, extra)
             if fd:
                 meta["finishDate"] = fd
+            isbn = weread.pick_isbn(info, extra)
+            if isbn:
+                meta["isbn"] = isbn
+            pub = weread.pick_publisher(info, extra)
+            if pub:
+                meta["publisher"] = pub
+            tr = weread.pick_translator(info, extra)
+            if tr:
+                meta["translator"] = tr
+            price = weread.pick_price(info, extra)
+            if price:
+                meta["price"] = price
+            year = weread.pick_publish_year(info, extra)
+            if year:
+                meta["publishYear"] = year
             store.upsert_book_full(book_id, title, "weread", meta)
         except weread.SessionExpired:
             expired = True
@@ -307,6 +332,7 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
             merged_entries = _apply_book_merges(shelf)
             entries += merged_entries
             _apply_piano_teacher_progress()
+            _heal_bare_hundred_progress()
             # Catch any remaining shelf-only last_open bumps (incl. books skipped above).
             store.reconcile_all_last_opens_from_entries()
         except weread.SessionExpired:
@@ -383,6 +409,39 @@ def _apply_piano_teacher_progress() -> None:
     if pct is None:
         return
     store.set_book_progress(_PIANO_BOOK_ID, pct, custom=True)
+
+
+def _heal_bare_hundred_progress() -> None:
+    """Re-resolve WeRead books stuck at 100% with no finish date via chapter pointer."""
+    with store.connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id FROM books
+            WHERE id LIKE 'weread:%'
+              AND COALESCE(progress, 0) >= 100
+              AND TRIM(COALESCE(finish_date, '')) = ''
+              AND COALESCE(progress_custom, 0) = 0
+            """
+        ).fetchall()
+    for row in rows:
+        book_id = str(row["id"] or "")
+        if not book_id or book_id == _PIANO_BOOK_ID:
+            continue
+        raw_id = book_id.split(":", 1)[1].strip()
+        if not raw_id:
+            continue
+        try:
+            pct = weread.fetch_reading_progress(raw_id)
+        except weread.SessionExpired:
+            raise
+        except Exception:
+            continue
+        if pct is None or pct >= 100:
+            continue
+        try:
+            store.set_book_progress(book_id, pct, custom=False)
+        except ValueError:
+            continue
 
 
 def sync_book_meta_field(book_id: str, field: str) -> dict:

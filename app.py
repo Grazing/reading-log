@@ -353,7 +353,11 @@ def fetch_cover_bytes(url: str) -> tuple[bytes, str]:
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
-        sys.stderr.write("[%s] %s\n" % (datetime.now().strftime("%H:%M:%S"), fmt % args))
+        try:
+            msg = fmt % args
+        except Exception:
+            msg = " ".join([str(fmt)] + [str(a) for a in args])
+        sys.stderr.write("[%s] %s\n" % (datetime.now().strftime("%H:%M:%S"), msg))
 
     def _send(self, code: int, body: bytes, content_type: str, cache: str = "no-store"):
         self.send_response(code)
@@ -1468,7 +1472,7 @@ def list_windows_displays() -> list:
             primary = hr >= 0 and rect.left == 0 and rect.top == 0
             friendly = names.get(_norm_dev(device)) or ("显示器 %d" % (len(displays) + 1))
             shown = friendly + ("（主屏幕）" if primary else "")
-            label = shown if width <= 0 or height <= 0 else "%s  %d×%d" % (shown, width, height)
+            label = shown if width <= 0 or height <= 0 else "%s  %d×%d" % (shown, int(width), int(height))
             displays.append({
                 "id": device,
                 "name": friendly,

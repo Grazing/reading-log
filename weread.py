@@ -700,6 +700,113 @@ def pick_word_count(*objs) -> int:
     return 0
 
 
+def _meta_stack(*objs) -> list:
+    stack = []
+    for obj in objs:
+        if not isinstance(obj, dict):
+            continue
+        stack.append(obj)
+        nested = obj.get("book")
+        if isinstance(nested, dict):
+            stack.append(nested)
+        nested = obj.get("bookInfo")
+        if isinstance(nested, dict):
+            stack.append(nested)
+    return stack
+
+
+def pick_isbn(*objs) -> str:
+    for item in _meta_stack(*objs):
+        for key in ("isbn", "ISBN", "isbn13", "isbn10"):
+            s = str(item.get(key) or "").strip()
+            if s and s.lower() not in ("none", "null"):
+                return s[:32]
+    return ""
+
+
+def pick_publisher(*objs) -> str:
+    for item in _meta_stack(*objs):
+        for key in ("publisher", "press", "publisherName", "publishHouse", "publishingHouse"):
+            s = str(item.get(key) or "").strip()
+            if s:
+                return s[:80]
+        # WeRead digital editions often leave publisher blank; copyright party is the imprint.
+        copy = item.get("copyrightInfo")
+        if isinstance(copy, dict):
+            s = str(copy.get("name") or "").strip()
+            if s:
+                return s[:80]
+    return ""
+
+
+def pick_translator(*objs) -> str:
+    for item in _meta_stack(*objs):
+        seg = item.get("translatorSeg") or item.get("translator_seg")
+        if isinstance(seg, list) and seg:
+            names = []
+            for part in seg:
+                if isinstance(part, dict):
+                    w = str(part.get("words") or part.get("name") or "").strip()
+                else:
+                    w = str(part or "").strip()
+                if w:
+                    names.append(w)
+            if names:
+                return " ".join(names)[:80]
+        for key in ("translator", "translators", "translatorName"):
+            raw = item.get(key)
+            if isinstance(raw, list):
+                names = [str(x).strip() for x in raw if str(x).strip()]
+                if names:
+                    return " ".join(names)[:80]
+            s = str(raw or "").strip()
+            if s:
+                return s[:80]
+    return ""
+
+
+def pick_price(*objs) -> str:
+    """Display price in yuan, e.g. '70.00'. Prefer price, then publishPrice, then centPrice."""
+    for item in _meta_stack(*objs):
+        for key in ("price", "publishPrice", "originalPrice"):
+            raw = item.get(key)
+            if raw is None or raw == "":
+                continue
+            try:
+                n = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if n > 0:
+                return "%.2f" % n
+        cent = item.get("centPrice")
+        if cent is None or cent == "":
+            continue
+        try:
+            c = int(cent)
+        except (TypeError, ValueError):
+            continue
+        if c > 0:
+            return "%.2f" % (c / 100.0)
+    return ""
+
+
+def pick_publish_year(*objs) -> str:
+    for item in _meta_stack(*objs):
+        for key in ("publishTime", "publish_time", "publishDate", "publish_date"):
+            raw = item.get(key)
+            if raw is None or raw == "":
+                continue
+            s = str(raw).strip()
+            if len(s) >= 4 and s[:4].isdigit():
+                y = int(s[:4])
+                if 1000 <= y <= 2100:
+                    return str(y)
+            iso = _iso_date_from_value(raw)
+            if iso:
+                return iso[:4]
+    return ""
+
+
 def _iso_date_from_value(raw) -> str:
     if raw is None or raw == "":
         return ""
@@ -775,16 +882,166 @@ def _progress_int(payload) -> Optional[int]:
     return n
 
 
-def fetch_reading_progress(book_id: str) -> Optional[int]:
-    """One book's WeRead progress, 0–100. None if the response has no progress."""
+def _has_finish_time(book: dict) -> bool:
+    """True when WeRead marks a real finish (not a bare progress=100)."""
+    if not isinstance(book, dict):
+        return False
+    for key in ("finishTime", "finishedDate", "finishDate", "finishedTime"):
+        raw = book.get(key)
+        if raw in (None, "", 0, "0"):
+            continue
+        return True
+    return False
+
+
+_chapterinfo_cache: dict[str, tuple[float, list]] = {}
+_CHAPTERINFO_TTL_SEC = 3600.0
+
+
+def fetch_chapterinfo(book_id: str) -> list:
+    """Chapter list with wordCount. Empty when neither session nor agent works."""
+    book_id = str(book_id or "").strip()
+    if not book_id:
+        return []
+    cached = _chapterinfo_cache.get(book_id)
+    if cached and (_now() - cached[0]) < _CHAPTERINFO_TTL_SEC and cached[1]:
+        return cached[1]
+    data = {}
+    if load_api_key():
+        try:
+            data = call_agent({"api_name": "/book/chapterinfo", "bookId": book_id})
+        except Exception:
+            data = {}
+    if not data and has_session():
+        for path, params in (
+            ("/book/chapterInfos", {"bookIds": json.dumps([book_id])}),
+            ("/book/chapterinfos", {"bookIds": book_id}),
+        ):
+            try:
+                data = web_get(path, params=params, app_api=True)
+                if data:
+                    break
+            except Exception:
+                data = {}
+    chapters = data.get("chapters") if isinstance(data, dict) else None
+    if not (isinstance(chapters, list) and chapters):
+        # Some payloads nest under data[] / updated[].
+        chapters = None
+        for key in ("data", "updated"):
+            block = data.get(key) if isinstance(data, dict) else None
+            if not isinstance(block, list):
+                continue
+            for item in block:
+                if not isinstance(item, dict):
+                    continue
+                nested = item.get("chapters")
+                if isinstance(nested, list) and nested:
+                    chapters = nested
+                    break
+            if chapters:
+                break
+    if isinstance(chapters, list) and chapters:
+        _chapterinfo_cache[book_id] = (float(_now()), chapters)
+        return chapters
+    return list(cached[1]) if cached and cached[1] else []
+
+
+def estimate_progress_from_pointer(
+    book_id: str,
+    chapter_idx: int,
+    chapter_offset: int,
+    chapters: Optional[list] = None,
+) -> Optional[int]:
+    """(words before chapter + chapterOffset) / total words → 0–100."""
     book_id = str(book_id or "").strip()
     if not book_id:
         return None
+    try:
+        idx = int(chapter_idx)
+        offset = int(chapter_offset)
+    except (TypeError, ValueError):
+        return None
+    if idx <= 0:
+        return None
+    rows = chapters if isinstance(chapters, list) and chapters else fetch_chapterinfo(book_id)
+    if not rows:
+        return None
+    total = 0
+    base = 0
+    found = False
+    cur_words = 0
+    for ch in rows:
+        if not isinstance(ch, dict):
+            continue
+        try:
+            words = int(ch.get("wordCount") or 0)
+        except (TypeError, ValueError):
+            words = 0
+        if words < 0:
+            words = 0
+        total += words
+        try:
+            cidx = int(ch.get("chapterIdx") or 0)
+        except (TypeError, ValueError):
+            continue
+        if cidx < idx:
+            base += words
+        elif cidx == idx:
+            found = True
+            cur_words = words
+    if not found or total <= 0:
+        return None
+    read = base + max(0, min(offset, cur_words if cur_words > 0 else offset))
+    pct = int(round(read / total * 100))
+    return max(0, min(100, pct))
+
+
+def resolve_reading_progress(book_id: str, payload) -> Optional[int]:
+    """Progress 0–100.
+
+    WeRead sometimes reports progress=100 with no finishTime while the chapter
+    cursor is still mid-book. Never treat bare 100 as finished: prefer the
+    chapter-pointer estimate, and if that fails return None so sync keeps the
+    previous local value instead of flipping to 100%.
+    """
+    book = payload.get("book") if isinstance(payload, dict) and isinstance(payload.get("book"), dict) else {}
+    n = _progress_int(payload)
+    if _has_finish_time(book):
+        if n is None:
+            return 100
+        return max(0, min(100, n))
+
+    idx = 0
+    offset = 0
+    try:
+        idx = int(book.get("chapterIdx") or 0)
+        offset = int(book.get("chapterOffset") or 0)
+    except (TypeError, ValueError):
+        idx, offset = 0, 0
+
+    estimated = None
+    if idx > 0:
+        estimated = estimate_progress_from_pointer(book_id, idx, offset)
+
+    if estimated is not None:
+        # Without finish evidence, never surface 100% (would mark 读完).
+        return 99 if estimated >= 100 else estimated
+
+    # No usable pointer estimate: keep prior progress rather than trusting bare 100.
+    if n is None or n >= 100:
+        return None
+    return n
+
+
+def _fetch_getprogress(book_id: str) -> dict:
+    book_id = str(book_id or "").strip()
+    if not book_id:
+        return {}
     if has_session():
         try:
-            n = _progress_int(web_get("/book/getprogress", params={"bookId": book_id}, app_api=True))
-            if n is not None:
-                return n
+            data = web_get("/book/getprogress", params={"bookId": book_id}, app_api=True)
+            if isinstance(data, dict) and data:
+                return data
         except SessionExpired:
             if not load_api_key():
                 raise
@@ -792,12 +1049,25 @@ def fetch_reading_progress(book_id: str) -> Optional[int]:
             pass
     if load_api_key():
         try:
-            return _progress_int(call_agent({"api_name": "/book/getprogress", "bookId": book_id}))
+            data = call_agent({"api_name": "/book/getprogress", "bookId": book_id})
+            if isinstance(data, dict):
+                return data
         except Exception:
-            return None
+            return {}
     if not has_session():
         raise SessionExpired("尚未登录微信读书")
-    return None
+    return {}
+
+
+def fetch_reading_progress(book_id: str) -> Optional[int]:
+    """One book's WeRead progress, 0–100. None if the response has no progress."""
+    book_id = str(book_id or "").strip()
+    if not book_id:
+        return None
+    payload = _fetch_getprogress(book_id)
+    if not payload:
+        return None
+    return resolve_reading_progress(book_id, payload)
 
 
 def fetch_book_meta(book_id: str) -> dict:
@@ -813,23 +1083,23 @@ def fetch_book_meta(book_id: str) -> dict:
         except Exception:
             info = {}
     prog = {}
-    if load_api_key():
-        try:
-            prog = call_agent({"api_name": "/book/getprogress", "bookId": str(book_id)})
-        except Exception:
-            prog = {}
+    try:
+        prog = _fetch_getprogress(str(book_id))
+    except SessionExpired:
+        raise
+    except Exception:
+        prog = {}
     book = prog.get("book") or {}
     nested = info.get("book") if isinstance(info.get("book"), dict) else {}
     book_info = info.get("bookInfo") if isinstance(info.get("bookInfo"), dict) else {}
     cover = upgrade_cover_url(
         info.get("cover") or nested.get("cover") or book_info.get("cover") or ""
     )
-    progress = None
-    if book:
-        try:
-            progress = int(book.get("progress") or 0)
-        except (TypeError, ValueError):
-            progress = None
+    progress = resolve_reading_progress(str(book_id), prog) if prog else None
+    finish_date = pick_finish_date(info, nested, book_info, book, prog)
+    # False 100 without finishTime must not stamp a 读完日期.
+    if progress is not None and progress < 100:
+        finish_date = ""
     last_open = 0
     try:
         last_open = int(book.get("updateTime") or info.get("updateTime") or 0)
@@ -840,9 +1110,14 @@ def fetch_book_meta(book_id: str) -> dict:
         "cover": cover,
         "wordCount": pick_word_count(info, nested, book_info, book),
         "author": pick_author(info, nested, book_info, book),
+        "isbn": pick_isbn(info, nested, book_info, book),
+        "publisher": pick_publisher(info, nested, book_info, book),
+        "translator": pick_translator(info, nested, book_info, book),
+        "price": pick_price(info, nested, book_info, book),
+        "publishYear": pick_publish_year(info, nested, book_info, book),
         "progress": progress,
         "lastOpen": last_open,
-        "finishDate": pick_finish_date(info, nested, book_info, book, prog),
+        "finishDate": finish_date,
         "readingSeconds": int(book.get("recordReadingTime") or 0),
     }
 

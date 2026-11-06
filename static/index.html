@@ -83,7 +83,8 @@
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; height: 100%; background: var(--paper); }
-    body.mode-books {
+    body.mode-books,
+    body.mode-tickets {
       display: flex;
       flex-direction: column;
       height: 100%;
@@ -284,9 +285,11 @@
     }
     body.compact-ui .preview-matte-tool input[type="range"] { width: 56px; }
     .cal-tools #calKindPick,
-    .cal-tools #wallMonthPick,
-    .cal-tools #orientPick {
+    .cal-tools #wallMonthPick {
       min-width: 72px;
+    }
+    .cal-tools #orientPick {
+      min-width: 108px;
     }
     /* Wallpaper period dropdown: keep <select> (many months); paint as pill capsule
        matching .cal-tools button / .books-slot-pill height & radius — not a segmented control. */
@@ -515,7 +518,8 @@
       overscroll-behavior-y: contain;
       scrollbar-width: none; /* Firefox */
       -ms-overflow-style: none; /* legacy Edge */
-      padding: 6px 0 0;
+      /* Clear fixed .tabs (~49px) with a modest gap — less than month’s 52px. */
+      padding: 6px 0 40px;
     }
     body.mode-books main::-webkit-scrollbar {
       width: 0;
@@ -680,6 +684,7 @@
       box-sizing: border-box;
       padding-left: var(--books-month-cover-inset);
       color: var(--books-ink);
+      opacity: 0.5;
     }
     #bookView > .books-month-head:first-child {
       margin-top: 0;
@@ -769,20 +774,32 @@
       margin: 0 auto;
       box-sizing: border-box;
     }
-    /* Card density: 简略 — title / author / [阅读中|已读完] + 日期|时速 only.
-       Width ≈ 完整 book-body (cover+row-gap removed) so title|状态 columns are not
-       squeezed. Gaps mirror 完整: strip→title = strip→cover (35); author-row 24;
-       status→right = wrap 8+6 + pad 2 = 16. */
+    /* Card density: 简略 — no cover / 进度字数等 stats; keep › + 按日明细.
+       Width ≈ 完整 book-body (cover+row-gap removed). Day bars shrink with the
+       narrower card; track/label scale ≈ 400/569. */
     body.books-card-brief .book-item .book-card {
       width: min(var(--books-brief-card-width), calc(100% - 80px));
-      padding: 14px 2px 14px 26px;
+      padding: 17px 2px 19px 26px;
       margin-bottom: 14px;
     }
     body.books-card-brief .book-card .cover-slot,
-    body.books-card-brief .book-card .stats-wrap,
-    body.books-card-brief .book-card .arrow,
-    body.books-card-brief .book-card .book-detail {
+    body.books-card-brief .book-card .stats,
+    body.books-card-brief .book-card .stats-wrap {
       display: none !important;
+    }
+    body.books-card-brief .book-card .book-detail {
+      padding-top: 6px;
+    }
+    body.books-card-brief .book-card .day-track {
+      height: 15px;
+    }
+    body.books-card-brief .book-card .day-lab {
+      font-size: 7px;
+      left: 7px;
+    }
+    /* Brief pad-bottom 19px; keep + centered in that blank. */
+    body.books-card-brief .book-detail-add {
+      bottom: max(0px, calc((19px - 18px) / 2));
     }
     body.books-card-brief .book-card .book-row {
       gap: 0;
@@ -794,11 +811,25 @@
     body.books-card-brief .book-card .book-title {
       font-size: 18px;
     }
-    /* Keep author-wrap track (1fr 6px / gap 8) so status→card-right matches 完整. */
+    /* Author row keeps empty 6px track (› is absolute — must not squeeze 作者列). */
     body.books-card-brief .book-card .book-author-wrap {
       grid-template-columns: minmax(0, 1fr) 6px;
       column-gap: 8px;
       margin-top: 4px;
+    }
+    /* › in author-wrap for static Y (= 作者行). Box shrinks to glyph; right:33px
+       puts › 右缘 on day-track 右缘 (= .book-detail pad-right), not the old 22px hit box. */
+    body.books-card-brief .book-item .book-card .book-author-wrap > .arrow,
+    body.books-card-brief #cardPopup .book-card .book-author-wrap > .arrow {
+      position: absolute;
+      right: 33px;
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      margin: 0;
+      text-align: right;
+      font-size: 18px;
+      line-height: 1;
     }
     body.books-card-brief .book-card .book-author-row {
       column-gap: 24px;
@@ -808,7 +839,7 @@
     }
     body.books-card-brief #cardPopup .book-card {
       width: var(--books-brief-card-width);
-      padding: 14px 2px 14px 26px;
+      padding: 17px 2px 19px 26px;
     }
     body.books-card-brief #cardPopup .book-card .book-body {
       margin-left: 17px;
@@ -823,7 +854,7 @@
     body.books-card-brief #cardPopup .book-card .book-finish { margin-left: -12px; }
     body.compact-ui.books-card-brief .book-item .book-card {
       width: min(280px, calc(100% - 40px));
-      padding: 10px 1px 10px 12px;
+      padding: 13px 1px 15px 12px;
       margin-bottom: 10px;
     }
     body.compact-ui.books-card-brief .book-card .book-body {
@@ -833,11 +864,18 @@
     body.compact-ui.books-card-brief .book-card .book-author-row {
       column-gap: 8px;
     }
+    body.compact-ui.books-card-brief .book-card .day-track {
+      height: 12px;
+    }
+    body.compact-ui.books-card-brief .book-card .day-lab {
+      font-size: 6px;
+      left: 5px;
+    }
     html.device-preview body.books-card-brief #bookView .book-item .book-card {
       width: max-content;
       min-width: 220px;
       max-width: 280px;
-      padding: 10px 14px 10px 18px;
+      padding: 13px 14px 15px 18px;
       margin: 0 auto 10px;
     }
     html.device-preview body.books-card-brief #bookView .book-card .book-body {
@@ -882,6 +920,48 @@
     }
     body.books-hide-on .book-hide-checks { display: flex; }
     body.books-card-brief.books-hide-on .book-hide-checks { display: flex; }
+    /* Select mode: single checkbox left of card — do not shrink card. */
+    .book-select-check {
+      display: none;
+      position: absolute;
+      right: calc(100% - 20px + 12px);
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--books-ink);
+      cursor: pointer;
+      z-index: 3;
+      pointer-events: auto;
+    }
+    body.compact-ui .book-select-check {
+      right: calc(100% - 10px + 12px);
+    }
+    body.books-card-brief .book-select-check {
+      right: calc(50% + min(var(--books-brief-card-width), 100% - 80px) / 2 + 12px);
+    }
+    body.compact-ui.books-card-brief .book-select-check {
+      right: calc(50% + min(280px, 100% - 40px) / 2 + 12px);
+    }
+    body.books-select-on .book-select-check { display: block; }
+    /* Align with .book-select-check: 12px left of head (= card) left edge. */
+    .books-month-head .books-month-check {
+      display: none;
+      position: absolute;
+      left: auto;
+      right: calc(100% + 12px);
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--books-ink);
+      cursor: pointer;
+      z-index: 3;
+      pointer-events: auto;
+    }
+    body.books-select-on .books-month-head .books-month-check { display: block; }
     body.books-card-brief.books-hide-on .book-hide-checks > label {
       display: inline-flex;
       align-items: center;
@@ -956,7 +1036,7 @@
        arrow-track (› is removed for PNG; 6px+8 still balances finish/stats). */
     #booksExportHost .book-card {
       width: 100%;
-      padding: 25px 2px 25px 26px;
+      padding: 28px 2px 30px 26px;
       margin-bottom: 24px;
       border-radius: 0 20px 20px 0;
       overflow: visible;
@@ -1018,7 +1098,7 @@
     /* 简略 export/save: same metrics as on-screen brief preview (not full layout). */
     body.books-card-brief #booksExportHost .book-card {
       width: 100%;
-      padding: 14px 2px 14px 26px;
+      padding: 17px 2px 19px 26px;
       margin-bottom: 14px;
       border-radius: 0 20px 20px 0;
       overflow: visible;
@@ -1026,10 +1106,23 @@
     body.books-card-brief #booksExportHost .book-card-strip { width: 8px; }
     body.books-card-brief #booksExportHost .book-row { gap: 0; align-items: stretch; }
     body.books-card-brief #booksExportHost .cover-slot,
-    body.books-card-brief #booksExportHost .stats-wrap,
-    body.books-card-brief #booksExportHost .arrow,
-    body.books-card-brief #booksExportHost .book-detail {
+    body.books-card-brief #booksExportHost .stats,
+    body.books-card-brief #booksExportHost .arrow {
       display: none !important;
+    }
+    body.books-card-brief #booksExportHost .stats-wrap {
+      margin-top: 2px;
+      min-height: 0;
+    }
+    body.books-card-brief #booksExportHost .book-detail {
+      padding-top: 6px;
+    }
+    body.books-card-brief #booksExportHost .day-track {
+      height: 15px;
+    }
+    body.books-card-brief #booksExportHost .day-lab {
+      font-size: 7px;
+      left: 7px;
     }
     body.books-card-brief #booksExportHost .book-body {
       margin-left: 17px;
@@ -1679,7 +1772,8 @@
       overflow: hidden;
     }
     body.compact-ui.mode-books main {
-      padding: 0;
+      /* Same ~40px clearance as desktop; +safe-area because .tabs adds it. */
+      padding: 0 0 calc(40px + env(safe-area-inset-bottom, 0px));
       width: 100%;
       max-width: 100%;
       overflow: hidden;
@@ -1727,7 +1821,7 @@
     }
     body.compact-ui .book-card {
       /* Right pad stays 1; width inset 12→20 (+8 = 2× last +4). */
-      padding: 12px 1px 12px 12px;
+      padding: 15px 1px 17px 12px;
       margin-bottom: 12px;
       border-radius: 0 12px 12px 0;
     }
@@ -1788,8 +1882,8 @@
       min-width: 280px;
       max-width: none;
       margin: 0 auto 12px;
-      /* 24→14: trim air to the right of 字数/读完 (arrow stays in-body). */
-      padding: 14px 14px 14px 18px;
+      /* 24→14: trim air to the right of 字数/读完 (arrow stays in-body). Top/bottom +3; bottom +2 more. */
+      padding: 17px 14px 19px 18px;
       box-sizing: border-box;
     }
     html.device-preview #bookView .book-item .book-card .arrow {
@@ -1846,19 +1940,21 @@
     body.compact-ui .arrow { font-size: 16px; }
     /* Right inset: card pad-right 1 + 11 = 12 = card pad-left.
        Left 0 here; device-preview overrides to align bars with cover. */
-    body.compact-ui .book-detail { font-size: 12px; padding: 6px 11px 0 0; }
+    body.compact-ui .book-detail { font-size: 12px; padding: 4px 11px 0 0; }
+    body.compact-ui .book-detail.open { padding-bottom: 3px; }
     /* B7: cover-slot margin-left is 6px — shift day bars to match cover left. */
     html.device-preview #bookView .book-detail { padding-left: 6px; }
-    body.compact-ui .book-detail-add,
-    body.compact-ui .book-detail-add-form {
-      /* Card padding-bottom is 12px; extra top margin drops + so the gaps match. */
-      margin: 24px auto 12px;
-      min-height: 28px;
+    body.compact-ui .book-detail-add {
+      /* Half of prior 28px; center in compact pad-bottom 17px. */
+      width: 14px;
+      height: 14px;
+      bottom: 1.5px;
     }
-    body.compact-ui .book-detail-add { width: 28px; height: 28px; }
-    body.compact-ui .book-detail-add svg { width: 14px; height: 14px; }
+    body.compact-ui .book-detail-add svg { width: 7px; height: 7px; }
     body.compact-ui .book-detail-add-form {
       height: 28px;
+      min-height: 28px;
+      margin: 8px auto 0;
       gap: 6px;
       font-size: 12px;
     }
@@ -1909,17 +2005,24 @@
     }
     body.compact-ui #statsPanel .stats-modes {
       margin: 0 auto 12px;
+      /* Match body.compact-ui .books-slot-pill */
+      height: 26.88px;
     }
     body.compact-ui #statsPanel .stats-modes button {
-      min-width: 46.2px;
-      min-height: 37.8px;
-      padding: 8px 14.7px;
-      font-size: 13.65px;
+      min-width: 2.8em;
+      padding: 0 10.5px;
+      font-size: 11.76px;
     }
-    body.compact-ui #statsPanel .stats-period { margin-bottom: 12px; gap: 10px; }
+    body.compact-ui #statsPanel .stats-period { margin-bottom: 12px; gap: 12px; }
+    body.compact-ui #statsPanel .stats-period-label {
+      font-size: 17px;
+    }
     body.compact-ui #statsPanel .stats-period button {
+      width: 36px;
+      height: 36px;
       min-width: 36px;
       min-height: 36px;
+      font-size: 22px;
     }
     body.compact-ui #statsPanel .stats-hbooks {
       margin: 14px 4px 8px;
@@ -3442,77 +3545,50 @@
       z-index: 2;
       background: #fff;
     }
-    .stats-modes {
-      display: flex;
+    /* Same segmented capsule as .books-slot-pill（时速|日期 / 完整|简略）. */
+    .stats-modes.books-slot-pill {
+      display: inline-flex;
       justify-content: center;
       align-items: stretch;
-      gap: 0;
       width: fit-content;
       margin: 0 auto 18px;
-      border: 0;
-      border-radius: 999px;
-      overflow: visible;
-      background: transparent;
       position: relative;
       z-index: 2;
       flex: 0 0 auto;
+      background: var(--paper);
     }
-    .stats-modes::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: -1px;
-      right: -1px;
-      border: 1.6px solid #b8ab9b;
-      border-radius: 999px;
-      pointer-events: none;
-      z-index: 2;
-    }
-    .stats-modes button {
+    .stats-modes.books-slot-pill button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1 1 0;
+      min-width: 3.6em;
       margin: 0;
-      /* Segmented stats pill ×1.05 vs prior 36.8 / 22.4 / 12.8 / 11.2. */
-      min-width: 38.64px;
-      min-height: 23.52px;
-      padding: 4.2px 13.44px 2.2px;
+      min-height: 0;
+      height: auto;
+      padding: 0 13.23px;
       border: 0;
-      border-radius: 0;
+      border-radius: 999px;
       background: transparent;
-      color: #7a7267;
-      font-size: 11.76px;
-      font-weight: 500;
-      letter-spacing: 0.06em;
-      line-height: 1;
+      color: var(--books-ink);
+      font-size: 13.23px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
       box-shadow: none;
-      position: relative;
-      z-index: 1;
+      white-space: nowrap;
     }
-    .stats-modes button:first-child {
-      border-radius: 999px 0 0 999px;
+    .stats-modes.books-slot-pill button:hover {
+      background: var(--btn);
+      color: var(--books-ink);
     }
-    .stats-modes button:last-child {
-      border-radius: 0 999px 999px 0;
-    }
-    .stats-modes button + button {
-      border-left: 1.6px solid #b8ab9b;
-    }
-    .stats-modes button:hover {
-      background: transparent;
-      color: #7a7267;
-    }
-    /* Selected segment: same pressed chrome as .cal-tools button.on (记录). */
-    .stats-modes button.on {
+    .stats-modes.books-slot-pill button.on {
       background: var(--week);
       color: var(--on-accent);
-      border-color: var(--week);
+      border-color: transparent;
+      box-shadow: none;
     }
-    .stats-modes button.on:first-child {
-      box-shadow: -1px 0 0 var(--week);
-    }
-    .stats-modes button.on:last-child {
-      box-shadow: 1px 0 0 var(--week);
-    }
-    .stats-modes button.on:hover {
+    .stats-modes.books-slot-pill button.on:hover {
       background: var(--primary-hover);
       color: var(--on-accent);
     }
@@ -3520,34 +3596,36 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 14px;
+      gap: 16px;
       margin-bottom: 18px;
     }
     .stats-period-label {
-      min-width: 8em;
+      min-width: 9em;
       text-align: center;
-      font-size: 14.4px;
+      /* ×1.35 vs prior 14.4 — larger 当前时间段 */
+      font-size: 19.4px;
       font-weight: 500;
       letter-spacing: 0.1em;
       line-height: 1.2;
-      color: #7a7267;
+      /* CSS vars so 色调 bake on .stats-sheet reaches here (was hardcoded hex). */
+      color: var(--books-ink);
     }
     .stats-period button {
-      width: 22px;
-      height: 22px;
-      min-height: 22px;
+      width: 32px;
+      height: 32px;
+      min-height: 32px;
       padding: 0;
       border: 0;
       border-radius: 50%;
-      background: #fcf9f3;
-      color: #b8ab9b;
-      font-size: 14px;
+      background: var(--cell-out);
+      color: var(--week);
+      font-size: 20px;
       line-height: 1;
       box-shadow: none;
     }
     .stats-period button:hover {
-      background: #fcf9f3;
-      color: #9e9080;
+      background: var(--out);
+      color: var(--books-ink);
     }
     .stats-period button:disabled {
       opacity: 0.35;
@@ -3563,12 +3641,13 @@
       text-align: center;
       font-size: 13.52px;
     }
-    .stats-gap { height: 1.6em; }
+    .stats-gap { height: 1em; }
     .stats-counts {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 10px 28px;
+      /* Tighter between 读过|读完|阅读万字|阅读天 */
+      gap: 6px 16px;
       align-items: baseline;
       font-size: 62.83px;
     }
@@ -3587,8 +3666,9 @@
     .stats-chart {
       display: grid;
       grid-template-columns: 32px minmax(0, 1fr);
-      margin-top: 16px;
-      padding-top: 52px;
+      /* Closer to 读过/读完/… above; tip still clears bars */
+      margin-top: 6px;
+      padding-top: 36px;
       padding-right: 32px;
       overflow: visible;
       align-items: end;
@@ -3860,8 +3940,9 @@
       overflow: hidden;
       background: var(--paper);
       border-radius: 0 20px 20px 0;
-      /* Right pad stays 2; width inset (see .book-item) pulls the card edge in. */
-      padding: 25px 2px 25px 26px;
+      /* Right pad stays 2; width inset (see .book-item) pulls the card edge in.
+         Top 28 / bottom 30 (= +3 then bottom +2). */
+      padding: 28px 2px 30px 26px;
       margin-bottom: 24px;
     }
     /* Floating single-book card (bar left-click); independent of #menu color popover.
@@ -3885,7 +3966,7 @@
       width: 585px;
       max-width: none;
       box-sizing: border-box;
-      padding: 25px 2px 25px 26px;
+      padding: 28px 2px 30px 26px;
       border-radius: 0 20px 20px 0;
       border: 1px solid var(--line);
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
@@ -3942,7 +4023,7 @@
     #cardPopup .stat-unit { font-size: 11px; }
     #cardPopup .book-field-sync img { width: 13px; height: 13px; }
     #cardPopup .arrow { font-size: 22px; }
-    #cardPopup .book-detail { font-size: 20px; padding: 12px 33px 0 17px; }
+    #cardPopup .book-detail { font-size: 20px; padding: 10px 33px 0 17px; }
     #cardPopup .month-head { font-size: 16.1px; margin: 12px 0 8px; }
     #cardPopup .day-track { height: 21px; }
     #cardPopup .day-lab { font-size: 9.8px; left: 10px; }
@@ -4315,35 +4396,49 @@
     /* Mac: pad-left 17 = cover-slot ml → chart left = cover left (43 from card).
        pad-right 33 + card pad-right 2 = 35 = (cover/chart left − strip 8), so
        strip→chart and chart→card-right gaps match. B7 overrides separately. */
-    .book-detail { display: none; padding: 12px 33px 0 17px; color: var(--date); font-size: 20px; }
-    .book-detail.open { display: block; }
-    /* Same vertical slot for + and the add form so card height does not jump.
-       Top margin includes .book-card padding-bottom (25px) so + sits lower
-       and the gap above matches the gap to the card edge. */
-    .book-detail-add,
-    .book-detail-add-form {
-      margin: 26px auto 1px;
-      min-height: 36px;
-      box-sizing: border-box;
-    }
+    .book-detail { display: none; padding: 10px 33px 0 17px; color: var(--date); font-size: 20px; }
+    /* +3px under last day bar; absolute + still sits in card pad-bottom. */
+    .book-detail.open { display: block; padding-bottom: 3px; }
+    /* + is out of flow (absolute in card bottom pad). Hover reveals without layout shift. */
     .book-detail-add {
+      position: absolute;
+      left: 50%;
+      /* Center 18px chip in card padding-bottom 30px. */
+      bottom: 6px;
+      transform: translateX(-50%);
+      z-index: 3;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      min-height: 0;
       border: 0;
       border-radius: 50%;
       padding: 0;
       line-height: 0;
       cursor: pointer;
       flex-shrink: 0;
+      box-sizing: border-box;
+      opacity: 1;
+    }
+    @media (hover: hover) {
+      .book-detail-add {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .book-card:hover .book-detail-add,
+      .book-card:focus-within .book-detail-add {
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
     .book-detail-add:hover { filter: brightness(0.96); }
     .book-detail-add svg {
       display: block;
-      width: 18px;
-      height: 18px;
+      width: 9px;
+      height: 9px;
       flex: 0 0 auto;
       pointer-events: none;
     }
@@ -4355,6 +4450,9 @@
       gap: 8px;
       max-width: 100%;
       height: 36px;
+      min-height: 36px;
+      margin: 12px auto 0;
+      box-sizing: border-box;
       font-family: var(--ui-font);
       font-size: 13px;
       color: var(--date);
@@ -4895,7 +4993,614 @@
       display: flex;
     }
     #orientPick {
-      min-width: 72px;
+      min-width: 108px;
+    }
+
+    /* ── 票根模式 ── */
+    body.mode-tickets .cal-tools { display: none !important; }
+    .tickets-tools {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      margin: 0;
+      padding: 0 20px 10px;
+      border-bottom: 1px solid var(--line);
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 4;
+      background: var(--cell-out);
+    }
+    body.mode-tickets .tickets-tools {
+      display: flex;
+      position: relative;
+      top: auto;
+      flex: 0 0 auto;
+    }
+    body.mode-tickets .books-tools { display: none !important; }
+    /* Same viewport chrome as mode-books; ticket canvas color only on #booksPort. */
+    body.mode-tickets,
+    html:has(body.mode-tickets),
+    body.mode-tickets .top,
+    body.mode-tickets main,
+    body.mode-tickets .tabs,
+    body.mode-tickets .tickets-tools {
+      background: var(--cell-out);
+    }
+    body.mode-tickets main {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding: 6px 0 40px;
+    }
+    body.mode-tickets main::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    body.mode-tickets .books-port {
+      display: block;
+      /* 画布背景：仅预览区，不影响顶栏/工具栏/底栏 */
+      background: var(--ticket-canvas, #f5f1eb);
+    }
+    body.mode-tickets #bookView {
+      display: block;
+      position: relative;
+      left: auto;
+      top: auto;
+      margin: 0 auto;
+      max-width: none;
+      width: 280px;
+      box-sizing: border-box;
+      overflow: visible;
+      transform: none;
+      zoom: normal;
+      padding: 12px 0 48px;
+      background: transparent;
+      color: var(--ticket-ink, #3a322c);
+    }
+    /* Match .books-tools / --tool-pill-* metrics exactly (no fixed 32px height). */
+    .tickets-tools button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--tool-pill-pad-y) var(--tool-pill-pad-x);
+      min-height: var(--tool-pill-min-h);
+      height: auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--books-ink);
+      font-family: var(--ui-font);
+      font-size: var(--tool-pill-font);
+      letter-spacing: 0.04em;
+      line-height: 1.2;
+      flex-shrink: 0;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .tickets-tools button:hover { background: var(--btn); }
+    .tickets-tools .books-seg > button.on {
+      background: var(--week);
+      color: var(--on-accent);
+      border-color: var(--line);
+      box-shadow: inset 0 0 0 1px var(--paper);
+    }
+    .tickets-tools .books-seg > button.on:hover { background: var(--primary-hover); }
+    .tickets-tools .books-slot-pill {
+      display: inline-flex;
+      align-items: stretch;
+      box-sizing: border-box;
+      height: 30.24px;
+      padding: 1px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      flex: 0 0 auto;
+      gap: 0;
+    }
+    .tickets-tools .books-slot-pill button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--books-ink);
+      min-height: 0;
+      height: auto;
+      padding: 0 13.23px;
+      font-size: 13.23px;
+      line-height: 1.2;
+      letter-spacing: 0.04em;
+      box-shadow: none;
+    }
+    .tickets-tools .books-slot-pill button:hover { background: var(--btn); }
+    .tickets-tools .books-slot-pill button.on {
+      background: var(--week);
+      color: var(--on-accent);
+      border-color: transparent;
+    }
+    .tickets-tools .books-slot-pill button.on:hover { background: var(--primary-hover); }
+    .tickets-tools .books-search {
+      width: 148px;
+      min-width: 0;
+      height: 28.8px;
+      min-height: 28.8px;
+      padding: 4.8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--books-ink);
+      font: inherit;
+      font-size: 12.6px;
+      box-sizing: border-box;
+    }
+    .tickets-tools .books-zoom-tool {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tickets-tools .books-zoom-tool input {
+      width: 52px;
+      height: 28.8px;
+      min-height: 28.8px;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      text-align: center;
+      font-family: var(--ui-font);
+      font-size: 12.6px;
+      color: var(--books-ink);
+      padding: 0;
+    }
+    body.compact-ui.mode-tickets {
+      overflow: hidden;
+    }
+    body.compact-ui.mode-tickets main {
+      padding: 0 0 calc(40px + env(safe-area-inset-bottom, 0px));
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    body.compact-ui .tickets-tools {
+      margin: 0;
+      padding: 0 10px 8px;
+      gap: 10px;
+    }
+    body.compact-ui .tickets-tools button {
+      padding: var(--tool-pill-pad-y-compact) var(--tool-pill-pad-x-compact);
+      min-height: var(--tool-pill-min-h-compact);
+      font-size: var(--tool-pill-font-compact);
+    }
+    body.compact-ui .tickets-tools .books-slot-pill { height: 26.88px; padding: 1px; }
+    body.compact-ui .tickets-tools .books-slot-pill button {
+      padding: 0 9.45px;
+      min-height: 0;
+      font-size: 11.34px;
+    }
+    body.compact-ui .tickets-tools .books-search {
+      width: 120px;
+      height: 25.6px;
+      min-height: 25.6px;
+      padding: 4.8px 10px;
+      font-size: 10.8px;
+    }
+    .ticket-item {
+      position: relative;
+      display: block;
+      margin: 0;
+      padding: 0;
+    }
+    .ticket-item + .ticket-item { margin-top: 0.5px; }
+    /* 按月：每月顶部 — 画布底，文字为票根底色 50%；上下边距 25/15。字号同 .ticket-year。 */
+    .ticket-month-gap {
+      position: relative;
+      width: 280px;
+      height: auto;
+      flex: 0 0 auto;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 25px 0 15px;
+      background: transparent;
+      /* rgba via --ticket-bg-50 (html2canvas cannot parse color-mix). */
+      color: var(--ticket-bg-50, rgba(252, 251, 248, 0.5));
+      font-size: 13.2px;
+      font-weight: 400;
+      line-height: 1.2;
+      pointer-events: none;
+    }
+    .ticket-month-gap .ticket-month-label {
+      display: block;
+      text-align: center;
+      user-select: none;
+      white-space: nowrap;
+      pointer-events: none;
+      color: inherit;
+    }
+    .ticket-month-gap .ticket-month-check {
+      display: none;
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--ticket-ink, #3a322c);
+      cursor: pointer;
+      z-index: 2;
+      pointer-events: auto;
+    }
+    body.tickets-select-on.tickets-period-on .ticket-month-gap .ticket-month-check {
+      display: block;
+    }
+    /* Sit outside stub to the left — do not shrink or shift stubs. */
+    .ticket-check {
+      display: none;
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--ticket-ink, #3a322c);
+      cursor: pointer;
+      z-index: 2;
+    }
+    body.tickets-select-on .ticket-check { display: block; }
+    body.mode-tickets #bookView { width: 280px; box-sizing: border-box; }
+    /*
+     * 票根.svg viewBox 0 0 34.04 72.87
+     * cover rect 2.21,2.96 29.64×39.11 (~87%W × 54%H); title @ y=46.05
+     * Root bug: global .cover{position:absolute} escaped without position:relative here.
+     */
+    .ticket-stub {
+      --ticket-vb-w: 34.04;
+      --ticket-vb-h: 72.87;
+      position: relative;
+      flex: 1 1 auto;
+      width: 280px;
+      box-sizing: border-box;
+      background: var(--ticket-bg, #fcfbf8);
+      color: var(--ticket-ink, #3a322c);
+      /* SVG outline mask (notch + scalloped edges); notch Y synced in JS. */
+      -webkit-mask: url("/ticket-stub-mask.svg") center / 100% 100% no-repeat;
+      mask: url("/ticket-stub-mask.svg") center / 100% 100% no-repeat;
+      /* Pad: original 18px L/R +5px inset each side → 23px; cover + text stay flush. */
+      padding: 24px 23px 18px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    /* In-place edit: no focus ring / dashed outline (same idea as pad-pct). */
+    .ticket-stub [contenteditable="true"],
+    .ticket-stub [contenteditable="true"]:focus {
+      outline: none !important;
+      box-shadow: none !important;
+      border: 0 !important;
+      -webkit-user-modify: read-write-plaintext-only;
+    }
+    .ticket-cover {
+      /* Contain absolute .cover / .cover-ph (global card styles). */
+      position: relative;
+      display: block;
+      width: 100%; /* same as text column inside padding */
+      max-width: 100%;
+      aspect-ratio: 3 / 4;
+      height: auto;
+      max-height: none;
+      border-radius: 0;
+      overflow: hidden;
+      background: #eee8df;
+      margin: 0 0 10px;
+      flex: 0 0 auto;
+      align-self: stretch;
+    }
+    .ticket-cover .cover,
+    .ticket-cover .cover-ph {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border: 0;
+      border-radius: 0;
+      pointer-events: none;
+    }
+    .ticket-cover .cover-ph {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #b3aea8;
+      background: #eee8df;
+    }
+    .ticket-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      width: 100%;
+    }
+    /* Title + year continuous (SVG: 书名 then (2021) on same baseline). */
+    .ticket-title-row {
+      display: block;
+      margin: 0;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .ticket-title {
+      display: inline;
+      font-size: 23px; /* SVG st3 2.82vb */
+      font-weight: 600;
+      cursor: text;
+    }
+    .ticket-year {
+      display: inline;
+      font-size: 13.2px; /* was 12px; +10% for (YYYY) */
+      font-weight: 600;
+      margin-left: 0.2em;
+      cursor: text;
+      white-space: nowrap;
+    }
+    /* SVG dashed dividers — ink at 50% (html2canvas-safe rgba var, not color-mix). */
+    .ticket-perf {
+      display: block;
+      position: relative;
+      height: 0;
+      width: calc(100% + 16px);
+      margin: 8px -8px;
+      border: 0;
+      border-top: 1.2px dashed var(--ticket-ink-50, rgba(58, 50, 44, 0.5));
+      flex: 0 0 auto;
+      align-self: stretch;
+      box-sizing: border-box;
+    }
+    .ticket-perf.solid {
+      border-top-style: dashed;
+    }
+    .ticket-name {
+      cursor: text;
+    }
+    .ticket-suffix {
+      cursor: default;
+      user-select: none;
+      pointer-events: none;
+    }
+    .ticket-author {
+      font-size: 10px; /* SVG st5 1.24vb */
+      line-height: 1.35;
+      margin: 0 0 2px;
+      cursor: text;
+    }
+    .ticket-meta-line {
+      font-size: 10px;
+      line-height: 1.35;
+      opacity: 0.92;
+      margin: 0;
+      cursor: text;
+    }
+    .ticket-meta-line .ticket-sep { opacity: 0.45; margin: 0 4px; }
+    .ticket-facts {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 0.75fr;
+      column-gap: 8px;
+      row-gap: 8px;
+      font-size: 10px;
+      line-height: 1.3;
+      margin: 0;
+      width: 100%;
+    }
+    .ticket-fact {
+      cursor: text;
+      word-break: break-word;
+    }
+    .ticket-fact .ticket-lab {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .ticket-fact .ticket-val {
+      display: block;
+      font-weight: 400;
+    }
+    /* Was padding-left:10px; user asked 左移25px from that visual → net −15px from grid. */
+    .ticket-fact[data-field="price"],
+    .ticket-fact[data-field="duration"] {
+      padding-left: 0;
+      margin-left: -15px;
+      box-sizing: border-box;
+    }
+    .ticket-rating-row {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 18px;
+      cursor: default;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    .ticket-rating-row .ticket-lab {
+      display: inline;
+      margin: 0;
+      padding: 0;
+      font-weight: 600;
+      font-size: 10px;
+      flex: 0 0 auto;
+      /* Same left edge as ISBN / 阅读时间 (.ticket-fact in col 1). */
+    }
+    .ticket-stars {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      /* Fit with label on left inside content width (~234px). */
+      gap: 5px;
+      margin-left: auto;
+      margin-right: 0;
+      flex: 0 0 auto;
+      padding: 0;
+      max-width: calc(100% - 4.5em);
+    }
+    /*
+     * Star from 票根.svg polygon (chunky 5-point).
+     * Sized so 10 stars + gaps fit beside 「综合评分:」 without shoving label left.
+     */
+    .ticket-star {
+      --ticket-star-w: 13px;
+      position: relative;
+      width: var(--ticket-star-w);
+      height: calc(var(--ticket-star-w) * 1.6 / 1.68);
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      color: var(--ticket-ink-28, rgba(58, 50, 44, 0.28));
+      flex: 0 0 auto;
+      line-height: 0;
+      font-size: 0;
+    }
+    .ticket-star.on { color: var(--ticket-ink, #3a322c); }
+    /* Hover preview replaces current rating (higher or lower). */
+    .ticket-stars.is-hovering .ticket-star {
+      color: var(--ticket-ink-28, rgba(58, 50, 44, 0.28));
+    }
+    .ticket-stars.is-hovering .ticket-star.hover-on {
+      color: var(--ticket-ink, #3a322c);
+    }
+    .ticket-stars.is-hovering .ticket-star.half .ticket-star-half {
+      display: none;
+    }
+    .ticket-stars.is-hovering .ticket-star.hover-preview-half .ticket-star-half {
+      display: block;
+    }
+    /* Preview ≠ current → 80%; preview == current → 100%. */
+    .ticket-stars.is-hovering.preview-diff { opacity: 0.6; }
+    .ticket-stars.is-hovering.preview-same { opacity: 1; }
+    .ticket-star-svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      fill: currentColor;
+      overflow: visible;
+    }
+    .ticket-star-half {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 50%;
+      height: 100%;
+      overflow: hidden;
+      color: var(--ticket-ink, #3a322c);
+      pointer-events: none;
+    }
+    .ticket-star.half .ticket-star-half { display: block; }
+    .ticket-star-half .ticket-star-svg {
+      width: 200%;
+      height: 100%;
+    }
+    .ticket-foot {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 8px; /* SVG st4 0.93vb */
+      margin-top: auto;
+      padding-top: 6px;
+      width: 100%;
+    }
+    .ticket-brand {
+      opacity: 0.8;
+      letter-spacing: 0.02em;
+      cursor: text;
+      font-size: 8px;
+    }
+    .ticket-recorder-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      font-size: 8px;
+      /* Reserve no space for sync icon — it overlays to the left. */
+    }
+    /* Hang left of 记录人 without growing foot/stub (out of flow). */
+    .ticket-recorder-wrap .book-field-sync {
+      display: none;
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-right: 4px;
+      flex: 0 0 auto;
+      color: var(--ticket-ink, #3a322c);
+      z-index: 2;
+    }
+    .ticket-recorder-wrap .book-field-sync img {
+      width: 12px;
+      height: 12px;
+    }
+    .ticket-recorder-wrap.sync-on .book-field-sync {
+      display: inline-flex;
+    }
+    .ticket-recorder-prefix {
+      flex: 0 0 auto;
+      opacity: 0.85;
+    }
+    .ticket-recorder {
+      cursor: text;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ticket-empty {
+      color: var(--ticket-ink-40, rgba(58, 50, 44, 0.4));
+    }
+    #ticketPaletteMenu .ticket-swatch-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px 4px;
+    }
+    #ticketPaletteMenu .ticket-swatch-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      font-family: var(--ui-font);
+      font-size: 11px;
+      color: var(--ink);
+    }
+    #ticketPaletteMenu .ticket-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
+    }
+    #ticketPaletteMenu .ticket-swatch-item.on .ticket-swatch {
+      box-shadow: 0 0 0 2px var(--date);
     }
   </style>
   <script>window.__PLANNER_PAD__=null;</script>
@@ -5158,8 +5863,8 @@
   <main>
     <div class="cal-tools" id="calTools">
       <div class="cal-tools-row" id="calToolsRow1">
-        <div class="cal-tools-group cal-month-only">
-          <select id="wallMonthPick" title="壁纸内容" tabindex="-1"></select>
+        <div class="cal-tools-group">
+          <select id="wallMonthPick" title="月历内容" tabindex="-1"></select>
         </div>
         <div class="cal-tools-group cal-month-only">
           <button type="button" class="cal-nav" id="prev" title="上个月">‹ 上月</button>
@@ -5174,15 +5879,6 @@
           <input id="trackFrom" type="date" title="开始日期" aria-label="开始日期" />
           <span class="track-date-sep">~</span>
           <input id="trackTo" type="date" title="结束日期" aria-label="结束日期" />
-        </div>
-        <div class="cal-tools-group">
-          <button type="button" class="cal-nav on cal-month-only" id="calScrollBtn" title="连续滚动月份" aria-pressed="true">滚动</button>
-          <label class="wall-size-tool view-zoom-tool" title="视图缩放：100% 为适应窗口。滚轮平移，⌥+滚轮缩放">
-            <span class="wall-size-field">
-              <input type="number" id="viewZoom" min="2" max="400" step="1" value="100" inputmode="numeric" aria-label="视图缩放百分比" />
-              <span class="wall-size-x">%</span>
-            </span>
-          </label>
         </div>
         <div class="cal-tools-group">
           <button type="button" class="cal-nav on" id="calRecordsBtn" title="显示阅读记录栏" aria-pressed="true">记录</button>
@@ -5211,20 +5907,16 @@
               <span class="wall-size-x">条</span>
             </span>
           </label>
-          <div class="books-slot-pill cal-month-only" id="orientPick" role="group" title="版式：竖版 / 横版" aria-label="版式">
-            <button type="button" class="on" data-orient="landscape" aria-pressed="true">横版</button>
-            <button type="button" data-orient="portrait" aria-pressed="false">竖版</button>
-          </div>
           <!-- div not label: one <label> wrapping Mag/W/H steals focus to the first
                input on mouseup outside the field (e.g. drag-select then release). -->
-          <div class="wall-size-tool cal-month-only" title="壁纸输出分辨率（逻辑像素）与放大倍率；实际 PNG 为宽×倍率 × 高×倍率，按倍率原生渲染而非拉伸">
+          <div class="wall-size-tool cal-month-only" title="月历输出分辨率（逻辑像素）与放大倍率；实际 PNG 为宽×倍率 × 高×倍率，按倍率原生渲染而非拉伸">
             <input type="number" id="wallMag" min="1" max="4" step="1" value="1" inputmode="numeric" aria-label="放大倍率" title="放大倍率（保证清晰度：按最终像素原生输出）" />
             <span class="wall-size-x">×</span>
-            <input type="number" id="wallW" min="320" step="1" inputmode="numeric" aria-label="壁纸宽" />
+            <input type="number" id="wallW" min="320" step="1" inputmode="numeric" aria-label="月历宽" />
             <span class="wall-size-x">×</span>
-            <input type="number" id="wallH" min="200" step="1" inputmode="numeric" aria-label="壁纸高" />
+            <input type="number" id="wallH" min="200" step="1" inputmode="numeric" aria-label="月历高" />
           </div>
-          <div class="wall-size-tool cal-track-only" title="追踪导出：放大倍率 × 单格宽 × 单格高">
+          <div class="wall-size-tool cal-track-only" title="日志导出：放大倍率 × 单格宽 × 单格高">
             <input type="number" id="trackMag" min="1" max="4" step="1" value="1" inputmode="numeric" aria-label="放大倍率" title="放大倍率" />
             <span class="wall-size-x">×</span>
             <input type="number" id="trackCellW" min="40" step="1" inputmode="numeric" aria-label="单格宽" title="单个格子宽度（像素）" />
@@ -5233,6 +5925,18 @@
           </div>
         </div>
         <div class="cal-tools-group">
+          <button type="button" class="cal-nav on cal-month-only" id="calScrollBtn" title="连续滚动月份" aria-pressed="true">滚动</button>
+          <label class="wall-size-tool view-zoom-tool" title="视图缩放：100% 为适应窗口。滚轮平移，⌥+滚轮缩放">
+            <span class="wall-size-field">
+              <input type="number" id="viewZoom" min="2" max="400" step="1" value="100" inputmode="numeric" aria-label="视图缩放百分比" />
+              <span class="wall-size-x">%</span>
+            </span>
+          </label>
+          <div class="books-slot-pill" id="orientPick" role="group" title="版式：横版 / 竖版 / 日志" aria-label="版式">
+            <button type="button" class="on" data-orient="landscape" aria-pressed="true">横版</button>
+            <button type="button" data-orient="portrait" aria-pressed="false">竖版</button>
+            <button type="button" data-mode="track" aria-pressed="false">日志</button>
+          </div>
           <button type="button" id="saveImg" title="保存图片">保存</button>
         </div>
       </div>
@@ -5298,6 +6002,7 @@
         <button type="button" id="booksEstimateBtn" title="未读完的书显示预估剩余阅读时间" aria-pressed="false">预估</button>
         <button type="button" id="booksDetailsBtn" title="展开全部阅读明细" aria-pressed="false">明细</button>
         <button type="button" id="booksHideBtn" title="选择要在月历、卡片中隐藏的书" aria-pressed="false">隐藏</button>
+        <button type="button" id="booksSelectBtn" title="选择要导出的卡片" aria-pressed="false">选择</button>
       </div>
       <div class="books-seg" role="group" aria-label="视图缩放">
         <label class="wall-size-tool books-zoom-tool" title="视图缩放：100% 为适应窗口宽度。滚轮平移，⌥+滚轮缩放（与日志相同，仅预览）">
@@ -5312,6 +6017,43 @@
         <button type="button" id="saveBooksImg" title="保存当前排序、筛选的书籍长图">保存</button>
       </div>
     </div>
+
+    <div class="tickets-tools" id="ticketsTools">
+      <div class="books-slot-pill" role="group" aria-label="排序">
+        <button type="button" data-tickets-sort="wordCount" title="书籍字数">字数</button>
+        <button type="button" data-tickets-sort="speed" title="阅读速度">时速</button>
+        <button type="button" data-tickets-sort="minutes" title="阅读时长">时长</button>
+        <button type="button" data-tickets-sort="lastOpen" title="最近打开">打开</button>
+        <button type="button" data-tickets-sort="finishDate" title="读完日期">读完</button>
+      </div>
+      <div class="books-slot-pill" role="group" aria-label="顺序">
+        <button type="button" data-tickets-order="asc">升序</button>
+        <button type="button" data-tickets-order="desc">降序</button>
+      </div>
+      <div class="books-slot-pill" role="group" aria-label="筛选">
+        <button type="button" data-tickets-filter="reading">在读</button>
+        <button type="button" data-tickets-filter="all">全部</button>
+        <button type="button" data-tickets-filter="finished">读完</button>
+      </div>
+      <div class="books-seg books-seg-actions" role="group" aria-label="票根工具">
+        <button type="button" id="ticketsPeriodBtn" title="按月份分段显示票根" aria-pressed="false">按月</button>
+        <button type="button" id="ticketsSelectBtn" title="选择要导出的票根" aria-pressed="false">选择</button>
+      </div>
+      <div class="books-seg" role="group" aria-label="配色与缩放">
+        <button type="button" id="ticketsPaletteBtn" title="票根配色（不受全局调色/色调影响）">配色</button>
+        <label class="wall-size-tool books-zoom-tool" title="视图缩放：100% 为适应窗口宽度">
+          <span class="wall-size-field">
+            <input type="number" id="ticketsViewZoom" min="2" max="400" step="1" value="100" inputmode="numeric" aria-label="视图缩放百分比" />
+            <span class="wall-size-x">%</span>
+          </span>
+        </label>
+      </div>
+      <div class="books-seg books-tools-save" role="group" aria-label="导出">
+        <input type="search" id="ticketsSearch" class="books-search" placeholder="书名 / 作者" title="按书名、作者筛选" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="搜索书名或作者" />
+        <button type="button" id="saveTicketsImg" title="保存票根长图">保存</button>
+      </div>
+    </div>
+
     <div id="monthView">
       <div class="cal-scroll" id="calScroll">
         <div class="planner-slot" id="plannerSlot">
@@ -5356,9 +6098,9 @@
     </template>
   </main>
   <div class="tabs">
-    <button class="tab" id="tabTrack">日志</button>
     <button class="tab active" id="tabMonth">月历</button>
     <button class="tab" id="tabBooks">卡片</button>
+    <button class="tab" id="tabTickets">票根</button>
   </div>
 
   <div class="menu" id="menu">
@@ -5536,6 +6278,61 @@
     </div>
   </div>
 
+
+  <div class="menu tone-pop" id="ticketPaletteMenu">
+    <div class="hsb-head"><div>票根配色</div></div>
+    <div class="ticket-swatch-row" id="ticketSwatchRow">
+      <button type="button" class="ticket-swatch-item on" data-ticket-color="canvas">
+        <span class="ticket-swatch" id="ticketSwatchCanvas"></span>
+        <span>画布背景</span>
+      </button>
+      <button type="button" class="ticket-swatch-item" data-ticket-color="stub">
+        <span class="ticket-swatch" id="ticketSwatchStub"></span>
+        <span>票根背景</span>
+      </button>
+      <button type="button" class="ticket-swatch-item" data-ticket-color="ink">
+        <span class="ticket-swatch" id="ticketSwatchInk"></span>
+        <span>票根文字</span>
+      </button>
+    </div>
+    <div class="hsb-sliders">
+      <div class="hsb-row">
+        <span class="hsb-key">H</span>
+        <div class="hsb-rail">
+          <div class="hsb-fill" id="tkHTrack"></div>
+          <i class="hsb-knob" id="tkHKnob"></i>
+          <input class="hsb-slide" type="range" id="tkHSlide" min="0" max="360" step="1" />
+        </div>
+        <input class="hsb-num" type="number" id="tkHVal" min="0" max="360" step="1" />
+        <span class="hsb-unit">°</span>
+      </div>
+      <div class="hsb-row">
+        <span class="hsb-key">S</span>
+        <div class="hsb-rail">
+          <div class="hsb-fill" id="tkSTrack"></div>
+          <i class="hsb-knob" id="tkSKnob"></i>
+          <input class="hsb-slide" type="range" id="tkSSlide" min="0" max="100" step="1" />
+        </div>
+        <input class="hsb-num" type="number" id="tkSVal" min="0" max="100" step="1" />
+        <span class="hsb-unit">%</span>
+      </div>
+      <div class="hsb-row">
+        <span class="hsb-key">B</span>
+        <div class="hsb-rail">
+          <div class="hsb-fill" id="tkBTrack"></div>
+          <i class="hsb-knob" id="tkBKnob"></i>
+          <input class="hsb-slide" type="range" id="tkVSlide" min="0" max="100" step="1" />
+        </div>
+        <input class="hsb-num" type="number" id="tkVVal" min="0" max="100" step="1" />
+        <span class="hsb-unit">%</span>
+      </div>
+    </div>
+    <div class="hsb-foot">
+      <input class="hsb-hex" id="tkHexVal" type="text" spellcheck="false" maxlength="7" autocomplete="off" aria-label="色号" />
+      <button type="button" id="ticketPaletteReset">复位</button>
+    </div>
+  </div>
+
   <div class="overlay" id="settings">
     <div class="sheet">
       <h2>设置</h2>
@@ -5676,7 +6473,7 @@
 
   <div class="overlay" id="statsPanel">
     <div class="sheet stats-sheet">
-      <div class="stats-modes" id="statsModes" role="group" aria-label="统计范围">
+      <div class="stats-modes books-slot-pill" id="statsModes" role="group" aria-label="统计范围">
         <button type="button" data-stats-mode="week">周</button>
         <button type="button" data-stats-mode="month" class="on">月</button>
         <button type="button" data-stats-mode="year">年</button>
@@ -5916,6 +6713,12 @@
     let booksSearchQuery = "";
     let booksSearchTimer = 0;
     let booksHideOn = false;
+    let booksSelectOn = false;
+    let booksSelected = new Set();
+    /** Month keys: export includes YYYY-MM label (✓ master). */
+    let booksMonthMaster = new Set();
+    /** Month keys: all cards selected but no label export (indeterminate "-"). */
+    let booksMonthAllNoLabel = new Set();
     let bookVis = {};
     const bookDetailHtml = new Map();
     const bookDetailInflight = new Map();
@@ -5974,6 +6777,118 @@
       btn.classList.toggle("on", !!booksHideOn);
       btn.setAttribute("aria-pressed", booksHideOn ? "true" : "false");
       btn.title = booksHideOn ? "应用隐藏并收起复选框" : "选择要在月历、卡片中隐藏的书";
+    }
+    function paintBooksSelectBtn() {
+      const btn = document.getElementById("booksSelectBtn");
+      if (!btn) return;
+      btn.classList.toggle("on", !!booksSelectOn);
+      btn.setAttribute("aria-pressed", booksSelectOn ? "true" : "false");
+      btn.title = booksSelectOn ? "收起选择框" : "选择要导出的卡片";
+      document.body.classList.toggle("books-select-on", !!booksSelectOn && viewMode === "books");
+    }
+    function setBooksSelect(on) {
+      booksSelectOn = !!on;
+      if (!booksSelectOn) {
+        booksSelected.clear();
+        booksMonthMaster.clear();
+        booksMonthAllNoLabel.clear();
+      }
+      paintBooksSelectBtn();
+      if (viewMode === "books") renderBooks();
+    }
+    function booksMonthIdsFromHead(head) {
+      return booksPeriodMonthItems(head).map((item) => {
+        const card = item.querySelector(".book-card");
+        return String((card && card.dataset.bookId) || item.dataset.bookId || "");
+      }).filter(Boolean);
+    }
+    /** off | master | allNoLabel | partial */
+    function booksMonthSelectPhase(ym, ids) {
+      const list = ids || [];
+      const n = list.filter((id) => booksSelected.has(id)).length;
+      if (n === 0) return "off";
+      if (list.length > 0 && n === list.length && booksMonthMaster.has(ym)) return "master";
+      if (list.length > 0 && n === list.length && booksMonthAllNoLabel.has(ym)) return "allNoLabel";
+      return "partial";
+    }
+    function setBooksMonthCardChecks(ids, on) {
+      const view = document.getElementById("bookView");
+      if (!view) return;
+      ids.forEach((id) => {
+        const card = view.querySelector('.book-card[data-book-id="' + CSS.escape(id) + '"]');
+        const item = card && card.closest(".book-item");
+        const c = item && item.querySelector(".book-select-check");
+        if (c) c.checked = !!on;
+      });
+    }
+    function paintBooksMonthSelectCheck(head) {
+      if (!head) return;
+      const check = head.querySelector(".books-month-check");
+      if (!check) return;
+      const ym = head.dataset.month || "";
+      const ids = booksMonthIdsFromHead(head);
+      const phase = booksMonthSelectPhase(ym, ids);
+      if (phase === "master") {
+        check.checked = true;
+        check.indeterminate = false;
+      } else if (phase === "allNoLabel" || phase === "partial") {
+        check.checked = false;
+        check.indeterminate = true;
+      } else {
+        check.checked = false;
+        check.indeterminate = false;
+      }
+    }
+    function syncBooksMonthSelectChecks(root) {
+      const scope = root || document.getElementById("bookView");
+      if (!scope) return;
+      scope.querySelectorAll(".books-month-head").forEach((head) => paintBooksMonthSelectCheck(head));
+    }
+    function cycleBooksMonthSelect(head, ids) {
+      const ym = (head && head.dataset.month) || "";
+      const list = ids || booksMonthIdsFromHead(head);
+      const phase = booksMonthSelectPhase(ym, list);
+      if (phase === "off" || phase === "partial") {
+        // → ✓ master: select all + export label
+        booksMonthMaster.add(ym);
+        booksMonthAllNoLabel.delete(ym);
+        list.forEach((id) => booksSelected.add(id));
+        setBooksMonthCardChecks(list, true);
+      } else if (phase === "master") {
+        // → - allNoLabel: keep all selected, no export label
+        booksMonthMaster.delete(ym);
+        booksMonthAllNoLabel.add(ym);
+        list.forEach((id) => booksSelected.add(id));
+        setBooksMonthCardChecks(list, true);
+      } else {
+        // allNoLabel → off
+        booksMonthMaster.delete(ym);
+        booksMonthAllNoLabel.delete(ym);
+        list.forEach((id) => booksSelected.delete(id));
+        setBooksMonthCardChecks(list, false);
+      }
+      paintBooksMonthSelectCheck(head);
+    }
+    function selectCheckForBook(book) {
+      const id = String(book && book.id || "");
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.className = "book-select-check";
+      check.setAttribute("aria-label", "选择卡片");
+      check.checked = booksSelected.has(id);
+      check.addEventListener("click", (ev) => ev.stopPropagation());
+      check.addEventListener("change", () => {
+        if (check.checked) booksSelected.add(id);
+        else booksSelected.delete(id);
+        const item = check.closest(".book-item");
+        const ym = (item && item.dataset.month) || "";
+        if (ym) {
+          booksMonthMaster.delete(ym);
+          booksMonthAllNoLabel.delete(ym);
+        }
+        syncBooksMonthSelectChecks();
+      });
+      return check;
     }
     async function persistBookVisibility() {
       const all = (bookData && bookData.books) || [];
@@ -6072,6 +6987,7 @@
       document.body.classList.toggle("books-card-brief", brief);
       document.querySelectorAll("#bookView .book-card, #cardPopup .book-card").forEach((card) => {
         card.classList.toggle("book-card-brief", brief);
+        placeBriefDetailArrow(card);
       });
     }
     function paintBooksDensityPill() {
@@ -6144,10 +7060,11 @@
         btn.classList.toggle("on", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
+      if (typeof paintTicketsChrome === "function") paintTicketsChrome();
     }
     let viewMode = params.get("mode") || storedView.mode || "month";
     if (viewMode === "prev-recent") viewMode = "recent";
-    if (viewMode !== "books" && viewMode !== "recent" && viewMode !== "track") viewMode = "month";
+    if (viewMode !== "books" && viewMode !== "tickets" && viewMode !== "recent" && viewMode !== "track") viewMode = "month";
     let recentOffset = 0;
     let recentMaxOffset = 0;
     let recentMinOffset = -2; // future placeholders: -1, -2
@@ -6480,12 +7397,18 @@
     function paintOrientPick() {
       const sel = document.getElementById("orientPick");
       if (!sel) return;
+      const onTrack = viewMode === "track";
       const value = isPortrait() ? "portrait" : "landscape";
       sel.querySelectorAll("button[data-orient]").forEach((btn) => {
-        const on = btn.getAttribute("data-orient") === value;
+        const on = !onTrack && btn.getAttribute("data-orient") === value;
         btn.classList.toggle("on", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
+      const trackBtn = sel.querySelector('button[data-mode="track"]');
+      if (trackBtn) {
+        trackBtn.classList.toggle("on", onTrack);
+        trackBtn.setAttribute("aria-pressed", onTrack ? "true" : "false");
+      }
     }
     function applyOrient(orient, opts) {
       opts = opts || {};
@@ -8024,7 +8947,7 @@
         if (el.style && el.style.filter) el.style.removeProperty("filter");
       });
     }
-    /** Brightness/contrast targets: preview canvas only — not chrome (.top / tools / tabs). */
+    /** Brightness/contrast targets: preview canvas + stats sheet (时段‹ › inherits toned vars). */
     function uiToneFilterTargets(doc) {
       const root = doc || document;
       // Wallpaper shell has no chrome; tone the whole main stage once.
@@ -8037,6 +8960,9 @@
       const booksPort = root.getElementById && root.getElementById("booksPort");
       if (monthView) list.push(monthView);
       if (booksPort) list.push(booksPort);
+      // Stats overlay sits outside #monthView/#booksPort; bake so 周/月/年与时段导航随色调。
+      const statsSheet = root.querySelector && root.querySelector("#statsPanel .stats-sheet");
+      if (statsSheet) list.push(statsSheet);
       return list;
     }
     function clearPreviewToneVars(el) {
@@ -10540,6 +11466,10 @@
     }
     const BOOKS_SCROLL_KEY = "readingLogBooksScroll";
     const BOOKS_VIEW_ZOOM_KEY = "readingLogBooksViewZoom";
+    /* v2: 100% = fit one stub into booksPort (was fit stack width → too large). */
+    const TICKETS_ZOOM_KEY = "readingLogTicketsZoomV2";
+    const TICKETS_ZOOM_LEGACY_KEY = "readingLogTicketsZoom";
+    const TICKETS_PAN_KEY = "readingLogTicketsPan";
     const BOOKS_PAN_KEY = "readingLogBooksPan";
     const BOOKS_VIEW_ZOOM_MIN = 2;
     const BOOKS_VIEW_ZOOM_MAX = 400;
@@ -10569,6 +11499,15 @@
       return 100;
     }
     let booksViewZoomPct = loadBooksViewZoomPref();
+    let ticketsViewZoomPct = (function () {
+      try {
+        const n = Number(localStorage.getItem(TICKETS_ZOOM_KEY));
+        if (Number.isFinite(n) && n >= 2 && n <= 400) return Math.round(n);
+        // Drop legacy prefs (old 100% = fit stack width); start at true fit-one = 100.
+        localStorage.removeItem(TICKETS_ZOOM_LEGACY_KEY);
+      } catch (e) {}
+      return 100;
+    })();
     let booksFitScale = 1;
     let booksContentW = 1;
     let booksContentH = 1;
@@ -10577,6 +11516,7 @@
     let booksPanNeedsCenter = true;
     let booksPanAnchor = null;
     let booksPanPersistTimer = null;
+    let ticketsPanPersistTimer = null;
     let booksLayoutTimer = null;
     function loadBooksScrollLocal() {
       try {
@@ -10603,8 +11543,16 @@
       } catch (e) {}
       return null;
     }
+    /** Active zoom for books-port modes — tickets keeps its own pct; never clobber cards. */
+    function activeBooksLikeZoomPct() {
+      if (viewMode === "tickets") {
+        const n = (typeof ticketsViewZoomPct === "number") ? ticketsViewZoomPct : 100;
+        return clampBooksViewZoom(n);
+      }
+      return clampBooksViewZoom(booksViewZoomPct);
+    }
     function booksScaleNow() {
-      const s = booksFitScale * (clampBooksViewZoom(booksViewZoomPct) / 100);
+      const s = booksFitScale * (activeBooksLikeZoomPct() / 100);
       return (s > 0 && Number.isFinite(s)) ? s : 1;
     }
     function booksPanContentAnchor() {
@@ -10612,6 +11560,7 @@
       return { cx: -booksPanX / s, cy: -booksPanY / s };
     }
     function persistBooksPanNow() {
+      // Cards pan/zoom only — tickets must not overwrite BOOKS_* prefs.
       if (wallpaperMode || viewMode !== "books") return;
       const anchor = booksPanContentAnchor();
       booksScrollY = Math.max(0, Math.floor(anchor.cy || 0));
@@ -10628,6 +11577,46 @@
       if (wallpaperMode) return;
       clearTimeout(booksPanPersistTimer);
       booksPanPersistTimer = setTimeout(persistBooksPanNow, 200);
+    }
+    function loadTicketsPanPref() {
+      try {
+        const raw = localStorage.getItem(TICKETS_PAN_KEY);
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        const cx = Number(o && o.cx);
+        const cy = Number(o && o.cy);
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+        return { cx: cx, cy: cy };
+      } catch (e) {}
+      return null;
+    }
+    function persistTicketsPanNow() {
+      // Tickets-only pan — never writes BOOKS_* keys.
+      if (wallpaperMode || viewMode !== "tickets") return;
+      const anchor = booksPanContentAnchor();
+      try {
+        localStorage.setItem(TICKETS_PAN_KEY, JSON.stringify({
+          cx: anchor.cx,
+          cy: anchor.cy,
+          zoom: clampBooksViewZoom(ticketsViewZoomPct)
+        }));
+        localStorage.setItem(TICKETS_ZOOM_KEY, String(clampBooksViewZoom(ticketsViewZoomPct)));
+      } catch (e) {}
+    }
+    function persistTicketsPan() {
+      if (wallpaperMode) return;
+      clearTimeout(ticketsPanPersistTimer);
+      ticketsPanPersistTimer = setTimeout(persistTicketsPanNow, 200);
+    }
+    function restoreTicketsPanAnchor() {
+      const saved = loadTicketsPanPref();
+      if (saved) {
+        booksPanAnchor = saved;
+        booksPanNeedsCenter = false;
+        return;
+      }
+      booksPanAnchor = null;
+      booksPanNeedsCenter = true;
     }
     function restoreBooksPanAnchor() {
       const saved = loadBooksPanPref();
@@ -10720,7 +11709,7 @@
       return { w: Math.max(1, Math.ceil(w)), h: Math.max(1, Math.ceil(h)) };
     }
     function layoutBooksViewScale() {
-      if (wallpaperMode || viewMode !== "books") return;
+      if (wallpaperMode || (viewMode !== "books" && viewMode !== "tickets")) return;
       const port = document.getElementById("booksPort");
       const pan = document.getElementById("booksPan") || document.getElementById("bookView");
       const box = document.getElementById("bookView");
@@ -10736,10 +11725,18 @@
       pan.style.transform = "none";
       box.style.zoom = "";
       box.style.transform = "none";
-      box.style.width = devicePreview ? "max-content" : "625px";
+      // Design width: cards 625; tickets stub 280 (+28px gutter when 选择, CSS).
+      if (viewMode === "tickets") {
+        box.style.width = "";
+        box.style.paddingLeft = "";
+        box.style.boxSizing = "";
+      } else {
+        box.style.width = devicePreview ? "max-content" : "625px";
+        box.style.paddingLeft = "";
+      }
       box.style.maxWidth = "none";
       box.style.margin = "0";
-      if (devicePreview) {
+      if (devicePreview && viewMode === "books") {
         const cards = box.querySelectorAll(".book-item .book-card");
         cards.forEach((card) => { card.style.width = ""; });
         void box.offsetWidth;
@@ -10765,12 +11762,25 @@
       booksContentH = contentH;
       // 100% = fit scale; user % multiplies.
       // Phone cards are content-width; don't stretch them to the screen.
-      let fitW = viewW;
-      if (devicePreview) fitW = Math.min(viewW, contentW);
-      booksFitScale = fitW / contentW;
+      // Tickets: 100% = one stub fills the canvas (min of width/height fit).
+      if (viewMode === "tickets") {
+        const stub = box.querySelector(".ticket-stub");
+        const tw = Math.max(1, (stub && (stub.offsetWidth || stub.clientWidth)) || 280);
+        const th = Math.max(1, (stub && (stub.offsetHeight || stub.clientHeight)) || 560);
+        booksFitScale = Math.min(viewW / tw, viewH / th);
+      } else {
+        let fitW = viewW;
+        if (devicePreview) fitW = Math.min(viewW, contentW);
+        booksFitScale = fitW / contentW;
+      }
       if (!(booksFitScale > 0) || !Number.isFinite(booksFitScale)) booksFitScale = 1;
-      booksViewZoomPct = clampBooksViewZoom(booksViewZoomPct);
-      const s = booksFitScale * (booksViewZoomPct / 100);
+      const zoomPct = activeBooksLikeZoomPct();
+      if (viewMode === "tickets") {
+        ticketsViewZoomPct = zoomPct;
+      } else {
+        booksViewZoomPct = zoomPct;
+      }
+      const s = booksFitScale * (zoomPct / 100);
       const scaledW = contentW * s;
       const scaledH = contentH * s;
       if (booksPanNeedsCenter) {
@@ -10790,7 +11800,11 @@
       booksPanY = py;
       pan.style.transform = "translate(" + px + "px," + py + "px) scale(" + s + ")";
       pan.style.transformOrigin = "0 0";
-      paintBooksViewZoom();
+      if (viewMode === "tickets") {
+        if (typeof paintTicketsChrome === "function") paintTicketsChrome();
+      } else {
+        paintBooksViewZoom();
+      }
       const anchor = booksPanContentAnchor();
       booksScrollY = Math.max(0, Math.floor(anchor.cy || 0));
     }
@@ -10810,17 +11824,18 @@
         booksPanAnchor = null;
       }
       paintBooksViewZoom();
-      if (viewMode === "books") {
+      if (viewMode === "books" || viewMode === "tickets") {
         layoutBooksViewScale();
         persistBooksPanNow();
       }
     }
     function restoreBooksScroll() {
-      if (wallpaperMode || viewMode !== "books") return;
-      restoreBooksPanAnchor();
+      if (wallpaperMode || (viewMode !== "books" && viewMode !== "tickets")) return;
+      // Tickets share in-memory pan only — do not clobber with cards' saved BOOKS_PAN.
+      if (viewMode === "books") restoreBooksPanAnchor();
       const gen = booksScrollGen;
       const apply = () => {
-        if (gen !== booksScrollGen || viewMode !== "books") return;
+        if (gen !== booksScrollGen || (viewMode !== "books" && viewMode !== "tickets")) return;
         layoutBooksViewScale();
       };
       apply();
@@ -10835,6 +11850,8 @@
       if (viewMode === "books") {
         persistBooksPanNow();
         persistBooksScrollNow();
+      } else if (viewMode === "tickets") {
+        persistTicketsPanNow();
       }
       if (viewMode === "track") persistTrackPanNow();
       if (viewMode === "month" || viewMode === "recent") persistMonthPanNow();
@@ -10844,13 +11861,21 @@
     });
     function setMode(mode) {
       const next = mode === "books" ? "books"
+        : mode === "tickets" ? "tickets"
         : mode === "track" ? "track"
         : mode === "recent" ? "recent"
         : "month";
       const prev = viewMode;
-      if (viewMode === "books" && next !== "books") {
+      // Flush cards pan/zoom before leaving books (incl. books→tickets).
+      if (prev === "books" && next !== "books") {
         persistBooksPanNow();
         persistBooksScrollNow();
+        persistBooksViewZoom(booksViewZoomPct);
+      }
+      if (prev === "tickets" && next !== "tickets") {
+        clearTimeout(ticketsPanPersistTimer);
+        ticketsPanPersistTimer = null;
+        persistTicketsPanNow();
       }
       if (prev === "track" && next !== "track") persistTrackPanNow();
       if ((prev === "month" || prev === "recent") && next !== "month" && next !== "recent") {
@@ -10875,17 +11900,30 @@
       }
       viewMode = next;
       persistLastView();
-      const calTab = viewMode === "month" || viewMode === "recent";
-      const tabTrack = document.getElementById("tabTrack");
-      if (tabTrack) tabTrack.classList.toggle("active", viewMode === "track");
+      // Bottom「月历」covers month / recent / track (日志 is in 横版|竖版|日志).
+      const calTab = viewMode === "month" || viewMode === "recent" || viewMode === "track";
       document.getElementById("tabMonth").classList.toggle("active", calTab);
       document.getElementById("tabBooks").classList.toggle("active", viewMode === "books");
-      document.getElementById("monthView").style.display = viewMode === "books" ? "none" : "";
+      const tabTickets = document.getElementById("tabTickets");
+      if (tabTickets) tabTickets.classList.toggle("active", viewMode === "tickets");
+      if (typeof paintOrientPick === "function") paintOrientPick();
+      const booksLike = viewMode === "books" || viewMode === "tickets";
+      document.getElementById("monthView").style.display = booksLike ? "none" : "";
       document.getElementById("calTools").removeAttribute("style");
       document.body.classList.toggle("mode-books", viewMode === "books");
+      document.body.classList.toggle("mode-tickets", viewMode === "tickets");
       document.body.classList.toggle("mode-track", viewMode === "track");
       document.body.classList.toggle("mode-month", viewMode === "month");
       document.body.classList.toggle("mode-recent", viewMode === "recent");
+      if (viewMode !== "tickets") {
+        document.body.classList.remove("tickets-select-on");
+        if (typeof closeTicketPaletteMenu === "function") closeTicketPaletteMenu();
+      }
+      if (viewMode !== "books") {
+        document.body.classList.remove("books-select-on");
+      } else if (typeof paintBooksSelectBtn === "function") {
+        paintBooksSelectBtn();
+      }
       if (typeof syncBarRowsCss === "function") syncBarRowsCss();
       // Restore wallpaper orient chrome when leaving track; keep landscape chrome on track.
       if (next === "track") {
@@ -10933,14 +11971,29 @@
       }
       if (typeof paintViewZoom === "function") paintViewZoom();
       schedulePlannerScale();
-      if (viewMode === "books") {
-        if (prev !== "books") {
-          booksPanNeedsCenter = !loadBooksPanPref() && !(loadBooksScrollLocal() > 0);
-          restoreBooksPanAnchor();
+      if (viewMode === "books" || viewMode === "tickets") {
+        if (prev !== viewMode) {
+          if (viewMode === "books") {
+            booksViewZoomPct = loadBooksViewZoomPref();
+            booksPanNeedsCenter = !loadBooksPanPref() && !(loadBooksScrollLocal() > 0);
+            restoreBooksPanAnchor();
+          } else {
+            // Tickets: own zoom + pan (isolated from cards BOOKS_* prefs).
+            try {
+              const z = Number(localStorage.getItem(TICKETS_ZOOM_KEY));
+              if (Number.isFinite(z)) ticketsViewZoomPct = clampBooksViewZoom(z);
+            } catch (e) {}
+            restoreTicketsPanAnchor();
+          }
+        } else if (viewMode === "tickets" && booksPanNeedsCenter) {
+          // Boot: setMode(viewMode) with prev===tickets — still restore saved pan.
+          restoreTicketsPanAnchor();
         }
         restoreBooksScroll();
-        scheduleBookCoverSizes();
+        if (viewMode === "books") scheduleBookCoverSizes();
         scheduleBooksViewScale();
+        if (typeof paintTicketsChrome === "function") paintTicketsChrome();
+        if (viewMode === "books") paintBooksViewZoom();
       } else {
         const mainEl = document.querySelector("main");
         if (mainEl) mainEl.scrollTop = 0;
@@ -11023,10 +12076,10 @@
       // Local storage is written immediately; server lastView can lag (debounce / aborted
       // POST on refresh). Never clobber a local mode/calKind with a stale server value.
       const localMode = String((storedView && storedView.mode) || "").trim();
-      const hasLocalMode = localMode === "books" || localMode === "recent"
+      const hasLocalMode = localMode === "books" || localMode === "tickets" || localMode === "recent"
         || localMode === "month" || localMode === "track";
       if (!urlHasMode && !hasLocalMode
-          && (src.mode === "books" || src.mode === "recent" || src.mode === "month" || src.mode === "track")) {
+          && (src.mode === "books" || src.mode === "tickets" || src.mode === "recent" || src.mode === "month" || src.mode === "track")) {
         viewMode = src.mode;
       }
       let hasLocalCalKind = false;
@@ -11175,6 +12228,8 @@
           slot.style.width = "";
           slot.style.flexBasis = "";
           slot.style.height = "";
+          slot.style.alignSelf = "";
+          slot.style.marginTop = "";
         });
         return;
       }
@@ -11191,12 +12246,19 @@
         slot.style.width = "";
         slot.style.flexBasis = "";
         slot.style.height = "";
-        const h = Math.round(body.scrollHeight || body.getBoundingClientRect().height);
-        if (h < 8) return;
+        slot.style.alignSelf = "";
+        slot.style.marginTop = "";
+        const rawH = Math.round(body.scrollHeight || body.getBoundingClientRect().height);
+        if (rawH < 8) return;
+        // Keep 3:4; shrink slightly so cover is not taller than the title column.
+        // +1px height grows downward (flex-start + fixed marginTop).
+        const h = Math.max(8, Math.round(rawH * 0.96) + 1);
         const w = Math.max(minW, Math.min(maxW, Math.round(h * 3 / 4)));
         slot.style.width = w + "px";
         slot.style.flexBasis = w + "px";
         slot.style.height = h + "px";
+        slot.style.alignSelf = "flex-start";
+        slot.style.marginTop = "3px";
       });
     }
     function scheduleBookCoverSizes() {
@@ -11300,10 +12362,19 @@
       if (m) divisor = Math.max(1, monthElapsedDays(Number(m[1]), Number(m[2])));
       const avgM = Math.round(totalM / divisor);
       const gap = "\u00a0\u00a0";
-      // 与统计 durationPlain 一致：N小时M分钟 / 仅分钟 / 0分钟
-      return "总时长：" + durationPlain(totalM * 60) + gap
-        + "日均：" + durationPlain(avgM * 60) + gap
-        + "阅读：" + statsWordsWanLabel(range.totalWords) + " 万字" + gap
+      // 按月小字：时/分（去掉「小」「钟」）
+      function durationShiFen(minutes) {
+        const total = Math.max(0, Math.floor(Number(minutes) || 0));
+        if (total <= 0) return "0分";
+        const h = Math.floor(total / 60);
+        const m = total % 60;
+        if (h <= 0) return m + "分";
+        if (m === 0) return h + "时";
+        return h + "时" + m + "分";
+      }
+      return "总时长：" + durationShiFen(totalM) + gap
+        + "日均：" + durationShiFen(avgM) + gap
+        + "阅读：" + statsWordsWanLabel(range.totalWords) + "万字" + gap
         + "读完：" + finished + "本";
     }
     /** Preserve visibleBooks order within each month; months newest-first. */
@@ -11363,7 +12434,9 @@
         ? periodRange
         : (booksPeriodRangeCache.has(ym) ? booksPeriodRangeCache.get(ym) : emptyPeriodRangeStats());
       const collapsed = booksPeriodCollapsed.has(ym || "");
+      const ids = (monthBooks || []).map((b) => String(b && b.id || "")).filter(Boolean);
       head.innerHTML =
+        '<input type="checkbox" class="books-month-check" aria-label="选择本月卡片" />' +
         '<div class="books-month-strip"></div>' +
         '<div class="books-month-title">' + escapeHtml(title) + "</div>" +
         '<div class="books-month-stats-row">' +
@@ -11380,7 +12453,16 @@
           toggleBooksMonthCollapse(head);
         });
       }
+      const monthCheck = head.querySelector(".books-month-check");
+      if (monthCheck) {
+        monthCheck.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          cycleBooksMonthSelect(head, ids);
+        });
+      }
       box.appendChild(head);
+      paintBooksMonthSelectCheck(head);
       return head;
     }
     function bindBookCardContextMenus(card, book) {
@@ -11433,6 +12515,19 @@
         startWordsEdit(wordsStat, book);
       });
     }
+    /** 简略：› 挂到作者行（静态纵坐标与作者同行，right:33px 对齐柱右缘）；完整：挂回 stats-wrap. */
+    function placeBriefDetailArrow(card) {
+      if (!card) return;
+      const arrow = card.querySelector(".arrow");
+      if (!arrow) return;
+      const authorWrap = card.querySelector(".book-author-wrap");
+      const statsWrap = card.querySelector(".stats-wrap");
+      if (booksCardDensity === "brief") {
+        if (authorWrap && arrow.parentElement !== authorWrap) authorWrap.appendChild(arrow);
+      } else if (statsWrap && arrow.parentElement !== statsWrap) {
+        statsWrap.appendChild(arrow);
+      }
+    }
     function appendBookCardItem(box, book, reopenDetails) {
       const card = document.createElement("div");
       card.className = "book-card" + (booksCardDensity === "brief" ? " book-card-brief" : "");
@@ -11465,6 +12560,7 @@
       const titleEl = card.querySelector(".book-title");
       const detail = card.querySelector(".book-detail");
       card.dataset.bookId = String(book.id);
+      placeBriefDetailArrow(card);
       setGradeFill(strip, book.barColor || "#eac1b7");
       setGradeInk(arrow, book.barColor || "#b5a596");
       setGradeInk(titleEl, bookNameColor(book));
@@ -11472,10 +12568,12 @@
       arrow.addEventListener("click", () => toggleDetail(arrow, detail, book));
       const item = document.createElement("div");
       item.className = "book-item";
+      item.dataset.bookId = String(book.id);
       item.appendChild(hideChecksFor(book));
+      item.appendChild(selectCheckForBook(book));
       item.appendChild(card);
       box.appendChild(item);
-      const wantOpen = booksCardDensity !== "brief" && (booksDetailsOn || reopenDetails.has(String(book.id)));
+      const wantOpen = booksDetailsOn || reopenDetails.has(String(book.id));
       if (wantOpen) setDetailOpen(arrow, detail, book, true);
       return item;
     }
@@ -11524,7 +12622,10 @@
         const gen = ++booksPeriodRangeGen;
         groups.forEach((group) => {
           const head = appendBooksMonthHead(box, group.key, group.books);
-          group.books.forEach((book) => appendBookCardItem(box, book, reopenDetails));
+          group.books.forEach((book) => {
+            const item = appendBookCardItem(box, book, reopenDetails);
+            if (item) item.dataset.month = group.key || "";
+          });
           if (booksPeriodCollapsed.has(group.key || "")) {
             paintBooksMonthCollapse(head, true);
           }
@@ -14682,11 +15783,12 @@
       const titleEl = card.querySelector(".book-title");
       const detail = card.querySelector(".book-detail");
       card.dataset.bookId = String(book.id);
+      placeBriefDetailArrow(card);
       if (strip) setGradeFill(strip, book.barColor || "#eac1b7");
       if (arrow) setGradeInk(arrow, book.barColor || "#b5a596");
       if (titleEl) setGradeInk(titleEl, bookNameColor(book));
       bindBookCardContextMenus(card, book);
-      if (arrow && detail && booksCardDensity !== "brief") {
+      if (arrow && detail) {
         arrow.addEventListener("click", (ev) => {
           ev.stopPropagation();
           toggleDetail(arrow, detail, book).then(() => {
@@ -15318,6 +16420,7 @@
 
     function refresh(doSync) {
       if (viewMode === "books") return loadBooks(doSync);
+      if (viewMode === "tickets") return loadTickets(doSync);
       if (viewMode === "track") return loadTrack(doSync);
       if (viewMode === "recent") return loadRecent(doSync);
       return loadMonth(doSync);
@@ -15331,6 +16434,8 @@
       return "微信读书未登录";
     }
     function paintLogin(weread) {
+      lastLoginWeread = weread || null;
+      wereadDisplayName = String((weread && weread.name) || "").trim();
       document.getElementById("loginStatus").textContent = (weread && weread.loggedIn)
         ? ("已登录" + (weread.name ? "：" + weread.name : ""))
         : "未登录";
@@ -15656,9 +16761,13 @@
       });
       await Promise.all(jobs);
     }
-    function exportableBookCards() {
+    function exportableBookCards(selectedOnly) {
+      const wantSelected = selectedOnly != null ? !!selectedOnly : !!booksSelectOn;
       return Array.from(document.querySelectorAll("#bookView .book-card")).filter((card) => {
         const id = String(card.dataset.bookId || "");
+        if (wantSelected && !booksSelected.has(id)) return false;
+        const item = card.closest(".book-item");
+        if (item && item.classList.contains("books-period-hidden")) return false;
         if (!id || !bookVis[id]) return true;
         return bookVis[id].card !== false;
       });
@@ -15667,16 +16776,25 @@
       const clone = card.cloneNode(true);
       clone.style.width = "";
       const brief = booksCardDensity === "brief";
+      const keepDetail = cardExportsDetail(card);
       if (brief) {
-        // Match on-screen brief: strip + title/author/status only (no full-layout CSS).
+        // Match on-screen brief: no cover/stats; keep open 按日明细 when expanded.
         clone.classList.add("book-card-brief");
-        clone.querySelectorAll(
-          ".cover-slot, .stats-wrap, .arrow, .book-detail, .book-detail-add, .book-detail-add-form, .day-row-edit"
-        ).forEach((el) => el.remove());
-        // Keep author-wrap arrow-track like live brief (do not collapse to 1fr).
+        clone.querySelectorAll(".cover-slot, .stats, .arrow, .book-detail-add, .book-detail-add-form, .day-row-edit")
+          .forEach((el) => el.remove());
+        if (!keepDetail) {
+          clone.querySelectorAll(".book-detail").forEach((el) => el.remove());
+        } else {
+          clone.classList.add("export-detail");
+          clone.style.overflow = "visible";
+          clone.querySelectorAll(".book-detail").forEach((el) => {
+            el.classList.add("open");
+            el.style.display = "block";
+            el.style.overflow = "visible";
+          });
+        }
         return clone;
       }
-      const keepDetail = cardExportsDetail(card);
       if (!keepDetail) {
         clone.querySelectorAll(".book-detail").forEach((el) => el.remove());
       } else {
@@ -15706,13 +16824,21 @@
       // Keep author-wrap / stats-wrap arrow-track like live preview (do not collapse to 1fr).
       return clone;
     }
-    function cloneBooksMonthHeadForExport(head) {
+    function cloneBooksMonthHeadForExport(head, opts) {
+      opts = opts || {};
       const clone = head.cloneNode(true);
       clone.style.width = "";
-      clone.querySelectorAll(".books-month-collapse").forEach((btn) => btn.remove());
+      clone.querySelectorAll(".books-month-collapse, .books-month-check").forEach((el) => el.remove());
+      // Keep spacing but hide YYYY-MM / stats when month master was not used.
+      if (opts.hideLabel) {
+        clone.querySelectorAll(".books-month-title, .books-month-stats, .books-month-strip").forEach((el) => {
+          el.style.visibility = "hidden";
+        });
+      }
       return clone;
     }
-    function buildBooksExportHost(cards) {
+    function buildBooksExportHost(cards, opts) {
+      opts = opts || {};
       const explicit = !!(cards && cards.length);
       const list = explicit ? Array.from(cards) : exportableBookCards();
       if (!list.length) return null;
@@ -15727,24 +16853,32 @@
       host.style.maxHeight = "none";
       const cardGapPx = booksCardDensity === "brief" ? "14px" : "24px";
       const view = document.getElementById("bookView");
-      const usePeriod = !explicit && booksPeriodOn && view;
+      // Single-card / one-item export: no month chrome. Bulk (incl. selection): keep 按月 when on.
+      const usePeriod = booksPeriodOn && view && !opts.noPeriod && list.length > 1;
       if (usePeriod) {
         const nodes = [];
+        let pendingMonth = null;
         Array.from(view.children).forEach((child) => {
           if (child.classList.contains("books-month-head")) {
-            nodes.push({ kind: "month", el: child });
+            pendingMonth = child;
             return;
           }
           if (!child.classList.contains("book-item")) return;
           if (child.classList.contains("books-period-hidden")) return;
           const card = child.querySelector(".book-card");
           if (!card || list.indexOf(card) < 0) return;
+          if (pendingMonth) {
+            nodes.push({ kind: "month", el: pendingMonth });
+            pendingMonth = null;
+          }
           nodes.push({ kind: "card", el: card });
         });
         nodes.forEach((node, i) => {
           const last = i === nodes.length - 1;
           if (node.kind === "month") {
-            const clone = cloneBooksMonthHeadForExport(node.el);
+            const ym = node.el.dataset.month || "";
+            const hideLabel = !!booksSelectOn && !booksMonthMaster.has(ym);
+            const clone = cloneBooksMonthHeadForExport(node.el, { hideLabel: hideLabel });
             clone.style.marginBottom = last ? "0px" : cardGapPx;
             if (i === 0) clone.style.marginTop = "0px";
             host.appendChild(clone);
@@ -15811,7 +16945,7 @@
       const fill = transparent ? null : BOOKS_CARD_STRIP_FILL;
       const list = cards && cards.length ? Array.from(cards) : null;
       await prepareBooksForExport(list || undefined);
-      const host = buildBooksExportHost(list);
+      const host = buildBooksExportHost(list, opts);
       if (!host) throw new Error("没有可保存的书籍卡片");
       try {
         await ensureHtml2Canvas();
@@ -15884,6 +17018,7 @@
       const status = document.getElementById("status");
       const prevStatus = status.textContent;
       showErr("");
+      const selectedOnly = !!booksSelectOn;
       const books = visibleBooks((bookData && bookData.books) || [], { forExport: true });
       if (!books.length) {
         showErr("没有符合筛选的书籍");
@@ -15893,9 +17028,18 @@
         }
         return;
       }
+      const cards = exportableBookCards(selectedOnly);
+      if (!cards.length) {
+        showErr(selectedOnly ? "请先勾选要保存的卡片" : "没有可保存的书籍卡片");
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = prevLabel;
+        }
+        return;
+      }
       status.textContent = "正在生成书籍长图…";
       try {
-        const canvas = await withDesktopCapture(() => captureBooksCards());
+        const canvas = await withDesktopCapture(() => captureBooksCards(selectedOnly ? cards : null));
         const blob = await canvasToPngBlob(canvas);
         status.textContent = await savePngBlob(booksExportName(), blob);
       } catch (e) {
@@ -15935,7 +17079,7 @@
       showErr("");
       if (status) status.textContent = "正在" + kind + "卡片…";
       try {
-        const canvas = await withDesktopCapture(() => captureBooksCards([card], { transparent: transparent, pad: pad }));
+        const canvas = await withDesktopCapture(() => captureBooksCards([card], { transparent: transparent, pad: pad, single: true, noPeriod: true }));
         const blob = await canvasToPngBlob(canvas);
         const msg = await savePngBlob(bookCardExportName(book, kind), blob);
         if (status) status.textContent = msg;
@@ -16774,7 +17918,9 @@
       return false;
     }
     document.addEventListener("keydown", (ev) => {
-      if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+      const prevKey = ev.key === "ArrowLeft" || ev.key === "ArrowUp";
+      const nextKey = ev.key === "ArrowRight" || ev.key === "ArrowDown";
+      if (!prevKey && !nextKey) return;
       if (monthBusy) return;
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
       if (isEditableKeyTarget(ev.target) || isEditableKeyTarget(document.activeElement)) return;
@@ -16782,12 +17928,12 @@
       if (viewMode === "recent") {
         if (wallpaperMode) return;
         ev.preventDefault();
-        shiftRecent(ev.key === "ArrowLeft" ? 1 : -1);
+        shiftRecent(prevKey ? 1 : -1);
         return;
       }
       if (!canPageMonthsByGesture()) return;
       ev.preventDefault();
-      shiftMonth(ev.key === "ArrowLeft" ? -1 : 1);
+      shiftMonth(prevKey ? -1 : 1);
     });
     function canDiscreteWheelPage() {
       if (wallpaperMode) return false;
@@ -16817,7 +17963,7 @@
     }
     function isBooksViewWheelTarget(target) {
       if (!target || !target.closest) return false;
-      if (target.closest(".cal-tools, .top, .tabs, .menu, .sheet, .books-tools, input, select, textarea, button")) {
+      if (target.closest(".cal-tools, .top, .tabs, .menu, .sheet, .books-tools, .tickets-tools, input, select, textarea, button")) {
         return false;
       }
       return !!target.closest("#booksPort, #bookView, main");
@@ -16915,7 +18061,7 @@
       return true;
     }
     function handleBooksViewWheel(ev) {
-      if (viewMode !== "books" || wallpaperMode) return false;
+      if ((viewMode !== "books" && viewMode !== "tickets") || wallpaperMode) return false;
       if (!isBooksViewWheelTarget(ev.target)) return false;
       const port = document.getElementById("booksPort");
       if (!port) return false;
@@ -16931,16 +18077,25 @@
         const contentX = (mx - booksPanX) / oldS;
         const contentY = (my - booksPanY) / oldS;
         // At low % (e.g. 6%), ×1.08 rounds back to the same int and Opt+wheel stalls.
-        const nextPct = stepViewZoomPct(booksViewZoomPct, (dy || dx) < 0, clampBooksViewZoom);
-        if (nextPct === booksViewZoomPct) return true;
-        booksViewZoomPct = nextPct;
-        persistBooksViewZoom(nextPct);
+        const curPct = activeBooksLikeZoomPct();
+        const nextPct = stepViewZoomPct(curPct, (dy || dx) < 0, clampBooksViewZoom);
+        if (nextPct === curPct) return true;
+        if (viewMode === "tickets") {
+          ticketsViewZoomPct = nextPct;
+          try { localStorage.setItem(TICKETS_ZOOM_KEY, String(nextPct)); } catch (e) {}
+          paintTicketsChrome();
+        } else {
+          booksViewZoomPct = nextPct;
+          persistBooksViewZoom(nextPct);
+          paintBooksViewZoom();
+        }
         const newS = booksFitScale * (nextPct / 100);
         booksPanX = mx - contentX * newS;
         booksPanY = my - contentY * newS;
         booksPanNeedsCenter = false;
         layoutBooksViewScale();
-        persistBooksPan();
+        if (viewMode === "books") persistBooksPan();
+        else if (viewMode === "tickets") persistTicketsPan();
         return true;
       }
       if (!dx && !dy) return false;
@@ -16949,7 +18104,8 @@
       booksPanY -= dy;
       booksPanNeedsCenter = false;
       layoutBooksViewScale();
-      persistBooksPan();
+      if (viewMode === "books") persistBooksPan();
+      else if (viewMode === "tickets") persistTicketsPan();
       return true;
     }
     function previewTouchOn() {
@@ -16963,22 +18119,22 @@
     }
     function previewGesturePort(target) {
       if (!target || !target.closest) return null;
-      if (target.closest(".cal-tools, .top, .tabs, .menu, .sheet, .books-tools, input, select, textarea, button, a, .overlay, #menu, #cardPopup")) {
+      if (target.closest(".cal-tools, .top, .tabs, .menu, .sheet, .books-tools, .tickets-tools, input, select, textarea, button, a, .overlay, #menu, #cardPopup")) {
         return null;
       }
-      if (viewMode === "books") return target.closest("#booksPort");
+      if (viewMode === "books" || viewMode === "tickets") return target.closest("#booksPort");
       if (viewMode === "month" || viewMode === "recent" || viewMode === "track") {
         return target.closest("#monthView");
       }
       return null;
     }
     function activePreviewZoomPct() {
-      if (viewMode === "books") return booksViewZoomPct;
+      if (viewMode === "books" || viewMode === "tickets") return activeBooksLikeZoomPct();
       if (viewMode === "track") return trackViewZoomPct;
       return monthViewZoomPct;
     }
     function zoomPreviewAt(clientX, clientY, nextPct) {
-      if (viewMode === "books") {
+      if (viewMode === "books" || viewMode === "tickets") {
         const port = document.getElementById("booksPort");
         if (!port) return;
         const oldS = booksScaleNow() || 1;
@@ -16988,14 +18144,22 @@
         const contentX = (mx - booksPanX) / oldS;
         const contentY = (my - booksPanY) / oldS;
         const pct = clampBooksViewZoom(nextPct);
-        booksViewZoomPct = pct;
-        persistBooksViewZoom(pct);
+        if (viewMode === "tickets") {
+          ticketsViewZoomPct = pct;
+          try { localStorage.setItem(TICKETS_ZOOM_KEY, String(pct)); } catch (e) {}
+          paintTicketsChrome();
+        } else {
+          booksViewZoomPct = pct;
+          persistBooksViewZoom(pct);
+          paintBooksViewZoom();
+        }
         const newS = booksFitScale * (pct / 100);
         booksPanX = mx - contentX * newS;
         booksPanY = my - contentY * newS;
         booksPanNeedsCenter = false;
         layoutBooksViewScale();
-        persistBooksPan();
+        if (viewMode === "books") persistBooksPan();
+        else if (viewMode === "tickets") persistTicketsPan();
         return;
       }
       if (viewMode === "track") {
@@ -17056,7 +18220,7 @@
       persistMonthPan();
     }
     function capturePreviewPan() {
-      if (viewMode === "books") return { kind: "books", x: booksPanX, y: booksPanY };
+      if (viewMode === "books" || viewMode === "tickets") return { kind: "books", x: booksPanX, y: booksPanY };
       if (viewMode === "track") return { kind: "track", x: trackPanX, y: trackPanY };
       const scrollOn = calScrollOn && (viewMode === "month" || viewMode === "recent");
       if (scrollOn) {
@@ -17085,7 +18249,8 @@
         booksPanY = start.y + dy;
         booksPanNeedsCenter = false;
         layoutBooksViewScale();
-        persistBooksPan();
+        if (viewMode === "books") persistBooksPan();
+        else if (viewMode === "tickets") persistTicketsPan();
         return;
       }
       if (start.kind === "track") {
@@ -17342,8 +18507,8 @@
     })();
     window.addEventListener("resize", () => {
       schedulePlannerScale();
-      if (viewMode === "books") {
-        scheduleBookCoverSizes();
+      if (viewMode === "books" || viewMode === "tickets") {
+        if (viewMode === "books") scheduleBookCoverSizes();
         scheduleBooksViewScale();
       }
     });
@@ -17353,7 +18518,7 @@
       const booksPort = document.getElementById("booksPort");
       if (booksPort) {
         new ResizeObserver(() => {
-          if (viewMode === "books") scheduleBooksViewScale();
+          if (viewMode === "books" || viewMode === "tickets") scheduleBooksViewScale();
         }).observe(booksPort);
       }
     }
@@ -17453,6 +18618,80 @@
       });
     }
     document.getElementById("saveBooksImg").onclick = () => { saveBooksImage().catch((e) => showErr(e.message)); };
+    document.getElementById("saveTicketsImg").onclick = () => { saveTicketsImage().catch((e) => showErr(e.message)); };
+    document.getElementById("ticketsPeriodBtn").onclick = () => { setTicketsPeriod(!ticketsPeriodOn); };
+    document.getElementById("ticketsSelectBtn").onclick = () => { setTicketsSelect(!ticketsSelectOn); };
+    document.getElementById("ticketsPaletteBtn").onclick = (ev) => {
+      ev.preventDefault();
+      const menu = document.getElementById("ticketPaletteMenu");
+      if (menu && menu.classList.contains("open")) closeTicketPaletteMenu();
+      else openTicketPaletteMenu(ev.currentTarget);
+    };
+    (function bindTicketsSearch() {
+      const input = document.getElementById("ticketsSearch");
+      if (!input) return;
+      const apply = () => {
+        const next = String(input.value || "");
+        if (next === booksSearchQuery) return;
+        booksSearchQuery = next;
+        const booksSearch = document.getElementById("booksSearch");
+        if (booksSearch && booksSearch.value !== booksSearchQuery) booksSearch.value = booksSearchQuery;
+        if (viewMode === "tickets") renderTickets();
+        else if (viewMode === "books") renderBooks();
+      };
+      let timer = 0;
+      const schedule = () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => { timer = 0; apply(); }, 120);
+      };
+      input.addEventListener("input", (ev) => {
+        if (ev.isComposing || ev.keyCode === 229) return;
+        schedule();
+      });
+      input.addEventListener("compositionend", schedule);
+      input.addEventListener("search", apply);
+    })();
+    document.getElementById("ticketsTools").addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button");
+      if (!btn || !document.getElementById("ticketsTools").contains(btn)) return;
+      if (btn.id === "saveTicketsImg" || btn.id === "ticketsPeriodBtn" || btn.id === "ticketsSelectBtn" || btn.id === "ticketsPaletteBtn") return;
+      const sort = btn.getAttribute("data-tickets-sort");
+      const order = btn.getAttribute("data-tickets-order");
+      const filter = btn.getAttribute("data-tickets-filter");
+      let changed = false;
+      if (sort && BOOKS_SORTS.indexOf(sort) >= 0 && booksChrome.sort !== sort) {
+        booksChrome.sort = sort; changed = true;
+      }
+      if (order && BOOKS_ORDERS.indexOf(order) >= 0 && booksChrome.order !== order) {
+        booksChrome.order = order; changed = true;
+      }
+      if (filter && BOOKS_FILTERS.indexOf(filter) >= 0 && booksChrome.filter !== filter) {
+        booksChrome.filter = filter; changed = true;
+      }
+      if (!changed) return;
+      persistBooksChrome();
+      paintBooksChrome();
+      paintTicketsChrome();
+      if (viewMode === "tickets") renderTickets();
+    });
+    (function bindTicketsViewZoom() {
+      const el = document.getElementById("ticketsViewZoom");
+      if (!el) return;
+      const apply = () => {
+        let n = Number(el.value);
+        if (!Number.isFinite(n)) n = 100;
+        n = Math.max(2, Math.min(400, Math.round(n)));
+        ticketsViewZoomPct = n;
+        el.value = String(n);
+        try { localStorage.setItem(TICKETS_ZOOM_KEY, String(n)); } catch (e) {}
+        // Do not write into booksViewZoomPct / BOOKS_VIEW_ZOOM_KEY.
+        if (viewMode === "tickets") scheduleBooksViewScale();
+      };
+      el.addEventListener("change", apply);
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") { ev.preventDefault(); apply(); }
+      });
+    })();
     (function bindBooksSearch() {
       const input = document.getElementById("booksSearch");
       if (!input) return;
@@ -17492,6 +18731,7 @@
     document.getElementById("booksSlotSpeed").onclick = () => { setBooksSpeed(true); };
     document.getElementById("booksSlotDate").onclick = () => { setBooksSpeed(false); };
     document.getElementById("booksHideBtn").onclick = () => { setBooksHide(!booksHideOn); };
+    document.getElementById("booksSelectBtn").onclick = () => { setBooksSelect(!booksSelectOn); };
     function fillWallMonthSelect() {
       const sel = document.getElementById("wallMonthPick");
       if (!sel) return;
@@ -17537,12 +18777,31 @@
     const orientPick = document.getElementById("orientPick");
     if (orientPick) {
       orientPick.addEventListener("click", (ev) => {
+        const modeBtn = ev.target.closest("button[data-mode]");
+        if (modeBtn && orientPick.contains(modeBtn)) {
+          if (modeBtn.getAttribute("data-mode") !== "track") return;
+          if (viewMode === "track") return;
+          if (typeof ensureTrackDates === "function") ensureTrackDates();
+          if (typeof paintTrackCellInputs === "function") paintTrackCellInputs();
+          setMode("track");
+          paintOrientPick();
+          refresh(false).catch((e) => showErr(e.message));
+          return;
+        }
         const btn = ev.target.closest("button[data-orient]");
         if (!btn || !orientPick.contains(btn)) return;
         const next = parseOrient(btn.getAttribute("data-orient")) || "landscape";
-        if (next === plannerOrient) return;
+        const leavingTrack = viewMode === "track";
+        if (!leavingTrack && next === plannerOrient) return;
         applyOrient(next);
         persistOrientNow(next).catch(() => {});
+        if (leavingTrack) {
+          const kind = readCalKindPref();
+          paintCalKindPick();
+          setMode(kind);
+          paintOrientPick();
+          refresh(false).catch((e) => showErr(e.message));
+        }
       });
     }
     ["wallW", "wallH", "wallMag"].forEach((id) => {
@@ -17753,22 +19012,1228 @@
       }
     }
     bootWinChrome();
+
+    /* ── 票根模式 ── */
+    const TICKETS_STORE_KEY = "readingLogTickets";
+    const TICKETS_PERIOD_KEY = "readingLogTicketsPeriod";
+    const TICKET_PALETTE_DEFAULT = {
+      canvas: "#f5f1eb",
+      stub: "#fcfbf8",
+      ink: "#3a322c"
+    };
+    let ticketsPeriodOn = loadBooksFlag(TICKETS_PERIOD_KEY);
+    let ticketsSelectOn = false;
+    let ticketsSelected = new Set();
+    let ticketStore = (function loadTicketStore() {
+      try {
+        const raw = localStorage.getItem(TICKETS_STORE_KEY);
+        if (!raw) return { books: {}, lastRecorder: "", palette: Object.assign({}, TICKET_PALETTE_DEFAULT) };
+        const o = JSON.parse(raw);
+        if (!o || typeof o !== "object") throw new Error("bad");
+        return {
+          books: (o.books && typeof o.books === "object") ? o.books : {},
+          lastRecorder: String(o.lastRecorder || ""),
+          palette: Object.assign({}, TICKET_PALETTE_DEFAULT, (o.palette && typeof o.palette === "object") ? o.palette : {})
+        };
+      } catch (e) {
+        return { books: {}, lastRecorder: "", palette: Object.assign({}, TICKET_PALETTE_DEFAULT) };
+      }
+    })();
+    let ticketPaletteTarget = "canvas";
+    let wereadDisplayName = "";
+    let lastLoginWeread = null;
+
+    function persistTicketStore() {
+      try {
+        localStorage.setItem(TICKETS_STORE_KEY, JSON.stringify({
+          books: ticketStore.books || {},
+          lastRecorder: ticketStore.lastRecorder || "",
+          palette: ticketStore.palette || TICKET_PALETTE_DEFAULT
+        }));
+      } catch (e) {}
+    }
+    function ticketBookOverride(id) {
+      const key = String(id || "");
+      if (!key) return {};
+      const cur = ticketStore.books[key];
+      return (cur && typeof cur === "object") ? cur : {};
+    }
+    function patchTicketBook(id, patch) {
+      const key = String(id || "");
+      if (!key) return;
+      const prev = ticketBookOverride(key);
+      ticketStore.books[key] = Object.assign({}, prev, patch || {});
+      persistTicketStore();
+    }
+    function defaultTicketRecorder() {
+      if (ticketStore.lastRecorder) return ticketStore.lastRecorder;
+      if (wereadDisplayName) return wereadDisplayName;
+      return "";
+    }
+    function ticketYearFromBook(book) {
+      const o = ticketBookOverride(book && book.id);
+      if (o.year != null && String(o.year).trim() !== "") return String(o.year).trim();
+      if (book && book.publishYear) return String(book.publishYear);
+      return "";
+    }
+    function ticketField(book, key, fallback) {
+      const o = ticketBookOverride(book && book.id);
+      if (o[key] != null && String(o[key]).trim() !== "") return String(o[key]);
+      if (fallback != null && String(fallback).trim() !== "") return String(fallback);
+      return "";
+    }
+    /** Ticket date: ISO YYYY-MM-DD → YYYY/M/D (no zero-pad), e.g. 2026/10/15 or 2026/1/5. */
+    function ticketSlashDate(iso) {
+      const s = String(iso || "").slice(0, 10);
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      if (!m) return "";
+      return m[1] + "/" + String(Number(m[2])) + "/" + String(Number(m[3]));
+    }
+    /** 「YYYY/M/D ~ YYYY/M/D」 with spaces around tilde. */
+    function ticketReadRangeDefault(book) {
+      const start = ticketSlashDate((book && book.firstDay) || "");
+      let end = ticketSlashDate((book && book.finishDate) || "");
+      if (!end) end = ticketSlashDate((book && book.lastDay) || "");
+      if (start && end) return start + " ~ " + end;
+      if (start) return start + " ~";
+      if (end) return "~ " + end;
+      return "";
+    }
+    /** 「xx小时xx分钟」 */
+    function ticketDurationDefault(book) {
+      const total = Math.floor((Number(book && book.seconds) || 0) / 60);
+      if (total <= 0) return "";
+      const h = Math.floor(total / 60);
+      const m = total % 60;
+      return h + "小时" + m + "分钟";
+    }
+    /** Display word count with thousand separators (e.g. 465,289). */
+    function formatTicketWords(val) {
+      const n = Number(String(val == null ? "" : val).replace(/,/g, "").trim());
+      if (!Number.isFinite(n) || n <= 0) return "";
+      return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    function ticketWordsDefault(book) {
+      return formatTicketWords(book && book.wordCount);
+    }
+    function ticketAuthorPartsHtml(raw) {
+      const name = authorRaw(raw);
+      if (!name) return '<span class="ticket-empty">-</span>';
+      return '<span class="ticket-name">' + escapeHtml(name) + '</span><span class="ticket-suffix"> 著</span>';
+    }
+    function ticketTranslatorPartsHtml(raw) {
+      const name = String(raw || "").replace(/\s*译\s*$/i, "").trim();
+      if (!name) return '<span class="ticket-empty">-</span>';
+      return '<span class="ticket-name">' + escapeHtml(name) + '</span><span class="ticket-suffix"> 译</span>';
+    }
+    function ticketPublisherPartsHtml(raw) {
+      const name = String(raw || "").replace(/\s*出版\s*$/i, "").trim();
+      if (!name) return '<span class="ticket-empty">-</span>';
+      return '<span class="ticket-name">' + escapeHtml(name) + '</span><span class="ticket-suffix"> 出版</span>';
+    }
+    function ticketTranslatorLabel(raw) {
+      const s = String(raw || "").trim();
+      if (!s) return "";
+      if (/译\s*$/.test(s)) return s;
+      return s + " 译";
+    }
+    function ticketPublisherLabel(raw) {
+      const s = String(raw || "").trim();
+      if (!s) return "";
+      if (/出版\s*$/.test(s)) return s;
+      return s + " 出版";
+    }
+    function ticketRating(book) {
+      const o = ticketBookOverride(book && book.id);
+      const n = Number(o.rating);
+      if (!Number.isFinite(n) || n <= 0) return 0;
+      return Math.max(0, Math.min(10, Math.round(n * 2) / 2));
+    }
+    function applyTicketPaletteVars(target) {
+      const p = ticketStore.palette || TICKET_PALETTE_DEFAULT;
+      const canvas = cssColor(p.canvas || TICKET_PALETTE_DEFAULT.canvas);
+      const stub = cssColor(p.stub || TICKET_PALETTE_DEFAULT.stub);
+      const ink = cssColor(p.ink || TICKET_PALETTE_DEFAULT.ink);
+      const el = target || document.documentElement;
+      // Absolute hex — not in UI_BASE bake list, so 调色/色调 leave them alone.
+      // Also bake rgba variants: html2canvas 1.4.1 cannot parse color-mix().
+      el.style.setProperty("--ticket-canvas", canvas);
+      el.style.setProperty("--ticket-bg", stub);
+      el.style.setProperty("--ticket-ink", ink);
+      el.style.setProperty("--ticket-bg-50", hexToRgba(stub, 0.5));
+      el.style.setProperty("--ticket-ink-28", hexToRgba(ink, 0.28));
+      el.style.setProperty("--ticket-ink-40", hexToRgba(ink, 0.4));
+      el.style.setProperty("--ticket-ink-50", hexToRgba(ink, 0.5));
+      return { canvas: canvas, stub: stub, ink: ink };
+    }
+    function applyTicketPaletteCss() {
+      const { canvas, stub, ink } = applyTicketPaletteVars(document.documentElement);
+      const swC = document.getElementById("ticketSwatchCanvas");
+      const swS = document.getElementById("ticketSwatchStub");
+      const swI = document.getElementById("ticketSwatchInk");
+      if (swC) swC.style.background = canvas;
+      if (swS) swS.style.background = stub;
+      if (swI) swI.style.background = ink;
+    }
+    function paintTicketsChrome() {
+      document.querySelectorAll("#ticketsTools [data-tickets-sort]").forEach((btn) => {
+        const on = btn.getAttribute("data-tickets-sort") === booksChrome.sort;
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      document.querySelectorAll("#ticketsTools [data-tickets-order]").forEach((btn) => {
+        const on = btn.getAttribute("data-tickets-order") === booksChrome.order;
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      document.querySelectorAll("#ticketsTools [data-tickets-filter]").forEach((btn) => {
+        const on = btn.getAttribute("data-tickets-filter") === booksChrome.filter;
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      const periodBtn = document.getElementById("ticketsPeriodBtn");
+      if (periodBtn) {
+        periodBtn.classList.toggle("on", !!ticketsPeriodOn);
+        periodBtn.setAttribute("aria-pressed", ticketsPeriodOn ? "true" : "false");
+        periodBtn.title = ticketsPeriodOn ? "关闭按月分段" : "按月份分段显示票根";
+      }
+      const selBtn = document.getElementById("ticketsSelectBtn");
+      if (selBtn) {
+        selBtn.classList.toggle("on", !!ticketsSelectOn);
+        selBtn.setAttribute("aria-pressed", ticketsSelectOn ? "true" : "false");
+        selBtn.title = ticketsSelectOn ? "收起选择框" : "选择要导出的票根";
+      }
+      document.body.classList.toggle("tickets-select-on", !!ticketsSelectOn && viewMode === "tickets");
+      document.body.classList.toggle("tickets-period-on", !!ticketsPeriodOn && viewMode === "tickets");
+      const zoom = document.getElementById("ticketsViewZoom");
+      if (zoom) zoom.value = String(ticketsViewZoomPct);
+      const search = document.getElementById("ticketsSearch");
+      if (search && search.value !== booksSearchQuery) search.value = booksSearchQuery;
+    }
+    /** Mask path notch center Y in viewBox units (original SVG ≈ 50.99). */
+    function ticketMaskUrlForNotchCenter(tc) {
+      const vbH = 72.87;
+      const r = 1.46;
+      const topRef = 1.24;
+      const bottomRef = 71.65;
+      let c = Number(tc);
+      if (!Number.isFinite(c)) c = 50.99;
+      c = Math.max(r + topRef + 0.5, Math.min(vbH - r - (vbH - bottomRef) - 0.5, c));
+      const notchBottom = +(c + r).toFixed(2);
+      const sideTop = +(c - r - topRef).toFixed(2);
+      const sideBottom = +(bottomRef - notchBottom).toFixed(2);
+      const d =
+        "M33.91," + notchBottom +
+        "c-.81,0-1.46-.65-1.46-1.46s.65-1.46,1.46-1.46h.13s0-" + sideTop + ",0-" + sideTop +
+        "c-.16,0-.32-.03-.47-.1-.15-.06-.29-.15-.41-.27-.23-.23-.36-.54-.36-.87h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S27.94.68,27.94,0h0s-2.39,0-2.39,0h0c0,.68-.55,1.24-1.24,1.24S23.07.68,23.07,0h0s-2.38,0-2.38,0h0c0,.68-.55,1.24-1.24,1.24S18.21.68,18.21,0h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S13.35.68,13.35,0h0s-2.39,0-2.39,0h0c0,.68-.55,1.24-1.24,1.24S8.48.68,8.48,0h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S3.63.68,3.63,0h0s-2.38,0-2.38,0h0c0,.33-.13.64-.37.87-.23.24-.54.37-.88.37v" + sideTop +
+        "c.81,0,1.46.65,1.46,1.46s-.65,1.46-1.46,1.46v" + sideBottom +
+        "c.32,0,.64.11.88.35.24.24.37.55.37.88h0s2.38,0,2.38,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.39,0,2.39,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.39,0,2.39,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.33.13-.64.36-.88.12-.11.26-.2.41-.27.15-.06.31-.08.47-.08v-" + sideBottom + "h-.13Z";
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34.04 72.87" preserveAspectRatio="none">' +
+        '<path fill="#fff" d="' + d + '"/></svg>';
+      return "url(\"data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) + "\")";
+    }
+    /** Align mid-lower notches with the gap between 作者 and 译者|出版社. */
+    function syncTicketNotchMasks(root) {
+      const scope = root || document.getElementById("bookView");
+      if (!scope) return;
+      scope.querySelectorAll(".ticket-stub").forEach((stub) => {
+        const author = stub.querySelector(".ticket-author");
+        const meta = stub.querySelector(".ticket-meta-line");
+        if (!author || !meta) return;
+        const sr = stub.getBoundingClientRect();
+        const ar = author.getBoundingClientRect();
+        const mr = meta.getBoundingClientRect();
+        if (!(sr.height > 1)) return;
+        // Vertical center of the spacing between the two rows.
+        const gapMid = (ar.bottom + mr.top) / 2;
+        const frac = (gapMid - sr.top) / sr.height;
+        const tc = frac * 72.87;
+        const url = ticketMaskUrlForNotchCenter(tc);
+        stub.style.webkitMaskImage = url;
+        stub.style.maskImage = url;
+        stub.style.webkitMaskSize = "100% 100%";
+        stub.style.maskSize = "100% 100%";
+        stub.style.webkitMaskRepeat = "no-repeat";
+        stub.style.maskRepeat = "no-repeat";
+        stub.style.webkitMaskPosition = "center";
+        stub.style.maskPosition = "center";
+      });
+    }
+    function ticketMonthLabel(ym) {
+      const s = String(ym || "").trim();
+      if (!s) return "其他";
+      // bookPeriodMonthKey uses YYYY-MM (same as books-month-title).
+      return s;
+    }
+    function appendTicketMonthGap(box, ym, monthBooks) {
+      const gap = document.createElement("div");
+      gap.className = "ticket-month-gap";
+      gap.dataset.month = ym || "";
+      const ids = (monthBooks || []).map((b) => String(b && b.id || "")).filter(Boolean);
+      const allOn = ids.length > 0 && ids.every((id) => ticketsSelected.has(id));
+      gap.innerHTML =
+        '<input type="checkbox" class="ticket-month-check" aria-label="选择本月票根"' +
+        (allOn ? " checked" : "") + " />" +
+        '<span class="ticket-month-label">' + escapeHtml(ticketMonthLabel(ym)) + "</span>";
+      const check = gap.querySelector(".ticket-month-check");
+      if (check) {
+        check.addEventListener("click", (ev) => ev.stopPropagation());
+        check.addEventListener("change", () => {
+          ids.forEach((id) => {
+            if (check.checked) ticketsSelected.add(id);
+            else ticketsSelected.delete(id);
+          });
+          // Sync per-ticket checks without full re-render (keeps pan).
+          const view = document.getElementById("bookView");
+          if (view) {
+            ids.forEach((id) => {
+              const item = view.querySelector('.ticket-item[data-book-id="' + CSS.escape(id) + '"]');
+              const c = item && item.querySelector(".ticket-check");
+              if (c) c.checked = !!check.checked;
+            });
+          }
+        });
+      }
+      box.appendChild(gap);
+      return gap;
+    }
+    /** Replace one ticket DOM node; preserve pan (no full list rebuild). */
+    function refreshTicketItemInPlace(book) {
+      if (!book || viewMode !== "tickets") return;
+      const box = document.getElementById("bookView");
+      if (!box) return;
+      const id = String(book.id);
+      const cur = box.querySelector('.ticket-item[data-book-id="' + CSS.escape(id) + '"]');
+      if (!cur) {
+        renderTickets();
+        return;
+      }
+      const keep = booksPanContentAnchor();
+      if (keep) {
+        booksPanAnchor = keep;
+        booksPanNeedsCenter = false;
+      }
+      const frag = document.createDocumentFragment();
+      appendTicketItem(frag, book);
+      const next = frag.firstChild;
+      if (!next) return;
+      cur.replaceWith(next);
+      syncTicketNotchMasks(next);
+      scheduleBooksViewScale();
+    }
+    function setTicketsPeriod(next) {
+      next = !!next;
+      if (next === !!ticketsPeriodOn) {
+        paintTicketsChrome();
+        return;
+      }
+      ticketsPeriodOn = next;
+      persistBooksFlag(TICKETS_PERIOD_KEY, ticketsPeriodOn);
+      paintTicketsChrome();
+      if (viewMode === "tickets") renderTickets();
+    }
+    function setTicketsSelect(next) {
+      ticketsSelectOn = !!next;
+      if (!ticketsSelectOn) ticketsSelected.clear();
+      paintTicketsChrome();
+      if (viewMode === "tickets") renderTickets();
+    }
+    /** Chunky 5-point star from 票根.svg polygon (normalized ×100). */
+    const TICKET_STAR_POLY = "84,0 112,50 168,61 129,103 136,160 84,136 32,160 39,103 0,61 56,50 84,0";
+    function ticketStarSvgHtml() {
+      return (
+        '<svg class="ticket-star-svg" viewBox="0 0 168 160" aria-hidden="true" focusable="false">' +
+        '<polygon points="' + TICKET_STAR_POLY + '"></polygon></svg>'
+      );
+    }
+    function starsHtml(rating) {
+      const r = Number(rating) || 0;
+      const glyph = ticketStarSvgHtml();
+      let html = '<span class="ticket-stars" role="img" aria-label="综合评分 ' + r + ' / 10">';
+      for (let i = 1; i <= 10; i++) {
+        let cls = "ticket-star";
+        if (r >= i) cls += " on";
+        else if (r >= i - 0.5) cls += " half";
+        html +=
+          '<button type="button" class="' + cls + '" data-star="' + i + '" title="' + i + '">' +
+          glyph +
+          '<span class="ticket-star-half" aria-hidden="true">' + glyph + "</span>" +
+          "</button>";
+      }
+      html += "</span>";
+      return html;
+    }
+    function formatTicketYearDisplay(year) {
+      const y = String(year || "").trim();
+      if (!y) return '<span class="ticket-empty">-</span>';
+      return "(" + escapeHtml(y) + ")";
+    }
+    function ticketFactCell(field, lab, val, emptyLab) {
+      const has = !!(val && String(val).trim());
+      return (
+        '<div class="ticket-fact" data-field="' + field + '">' +
+        '<span class="ticket-lab">' + escapeHtml(lab) + ":</span>" +
+        (has
+          ? '<span class="ticket-val">' + escapeHtml(val) + "</span>"
+          : '<span class="ticket-val ticket-empty">' + escapeHtml(emptyLab || "-") + "</span>") +
+        "</div>"
+      );
+    }
+    function ticketDisplayModel(book) {
+      const o = ticketBookOverride(book.id);
+      const title = ticketField(book, "title", book.title);
+      const year = ticketYearFromBook(book);
+      const author = ticketField(book, "author", authorRaw(book.author));
+      const translator = ticketField(book, "translator", book.translator || "");
+      const publisher = ticketField(book, "publisher", book.publisher || "");
+      const isbn = ticketField(book, "isbn", book.isbn || "");
+      const words = formatTicketWords(ticketField(book, "wordCount", ticketWordsDefault(book)));
+      const price = ticketField(book, "price", book.price || "");
+      const readRange = ticketField(book, "readRange", ticketReadRangeDefault(book));
+      const duration = ticketField(book, "duration", ticketDurationDefault(book));
+      const brand = ticketField(book, "brand", "The Book");
+      let recorder = ticketField(book, "recorder", "");
+      if (!recorder) recorder = defaultTicketRecorder();
+      return {
+        title: title,
+        year: year,
+        author: author,
+        translator: translator,
+        publisher: publisher,
+        isbn: isbn,
+        words: words,
+        price: price,
+        readRange: readRange,
+        duration: duration,
+        brand: brand,
+        recorder: recorder,
+        rating: ticketRating(book)
+      };
+    }
+    function appendTicketItem(box, book) {
+      const m = ticketDisplayModel(book);
+      const item = document.createElement("div");
+      item.className = "ticket-item";
+      item.dataset.bookId = String(book.id);
+      const checked = ticketsSelected.has(String(book.id));
+      const metaLine =
+        '<div class="ticket-meta-line">' +
+        '<span class="ticket-part" data-field="translator">' +
+        ticketTranslatorPartsHtml(m.translator) +
+        '</span><span class="ticket-sep">|</span><span class="ticket-part" data-field="publisher">' +
+        ticketPublisherPartsHtml(m.publisher) +
+        "</span></div>";
+      const facts =
+        '<div class="ticket-facts">' +
+        ticketFactCell("isbn", "ISBN", m.isbn) +
+        ticketFactCell("wordCount", "字数", m.words) +
+        ticketFactCell("price", "定价", m.price) +
+        '<div class="ticket-fact" data-field="readRange" style="grid-column:1/3">' +
+        '<span class="ticket-lab">阅读时间:</span>' +
+        (m.readRange
+          ? '<span class="ticket-val">' + escapeHtml(m.readRange) + "</span>"
+          : '<span class="ticket-val ticket-empty">-</span>') +
+        "</div>" +
+        ticketFactCell("duration", "阅读时长", m.duration) +
+        '<div class="ticket-rating-row" data-field="rating">' +
+        '<span class="ticket-lab">综合评分:</span>' + starsHtml(m.rating) +
+        "</div></div>";
+      item.innerHTML =
+        '<input type="checkbox" class="ticket-check" aria-label="选择票根"' + (checked ? " checked" : "") + " />" +
+        '<article class="ticket-stub">' +
+        '<div class="ticket-cover">' + coverMediaHtml(book.cover, book.title) + "</div>" +
+        '<div class="ticket-body">' +
+        '<div class="ticket-title-row">' +
+        '<span class="ticket-title" data-field="title">' + (m.title ? escapeHtml(m.title) : '<span class="ticket-empty">-</span>') + "</span>" +
+        '<span class="ticket-year" data-field="year">' + formatTicketYearDisplay(m.year) + "</span>" +
+        "</div>" +
+        '<div class="ticket-perf" aria-hidden="true"></div>' +
+        '<div class="ticket-author" data-field="author">' + ticketAuthorPartsHtml(m.author) + "</div>" +
+        metaLine +
+        '<div class="ticket-perf" aria-hidden="true"></div>' +
+        facts +
+        '<div class="ticket-perf" aria-hidden="true"></div>' +
+        '<div class="ticket-foot">' +
+        '<div class="ticket-brand" data-field="brand">' + escapeHtml(m.brand || "The Book") + "</div>" +
+        '<div class="ticket-recorder-wrap">' + fieldSyncBtnHtml() +
+        '<span class="ticket-recorder-prefix">记录人:</span>' +
+        '<div class="ticket-recorder" data-field="recorder" title="记录人">' +
+        (m.recorder ? escapeHtml(m.recorder) : '<span class="ticket-empty">-</span>') +
+        "</div></div></div></div></article>";
+      const stub = item.querySelector(".ticket-stub");
+      const check = item.querySelector(".ticket-check");
+      if (check) {
+        check.addEventListener("click", (ev) => ev.stopPropagation());
+        check.addEventListener("change", () => {
+          const id = String(book.id);
+          if (check.checked) ticketsSelected.add(id);
+          else ticketsSelected.delete(id);
+        });
+      }
+      bindTicketInteractions(item, book);
+      box.appendChild(item);
+      return item;
+    }
+    function clearTicketStarHover(stub) {
+      if (!stub) return;
+      const stars = stub.querySelector(".ticket-stars");
+      if (!stars) return;
+      stars.classList.remove("is-hovering", "preview-diff", "preview-same");
+      stars.style.opacity = "";
+      stars.querySelectorAll(".ticket-star").forEach((btn) => {
+        btn.classList.remove("hover-on", "hover-half", "hover-full", "hover-preview-half");
+      });
+    }
+    function paintTicketStarHover(stub, clientX, currentRating) {
+      const stars = stub && stub.querySelector(".ticket-stars");
+      if (!stars) return;
+      const buttons = Array.from(stars.querySelectorAll(".ticket-star"));
+      if (!buttons.length) return;
+      let active = null;
+      let half = false;
+      for (let i = 0; i < buttons.length; i++) {
+        const r = buttons[i].getBoundingClientRect();
+        if (clientX >= r.left && clientX < r.right) {
+          active = buttons[i];
+          half = (clientX - r.left) < r.width * 0.5;
+          break;
+        }
+      }
+      if (!active) {
+        clearTicketStarHover(stub);
+        return;
+      }
+      const idx = Number(active.getAttribute("data-star")) || 0;
+      const preview = half ? (idx - 0.5) : idx;
+      const cur = Number(currentRating) || 0;
+      const same = Math.abs(cur - preview) < 0.01;
+      stars.classList.add("is-hovering");
+      stars.classList.toggle("preview-same", same);
+      stars.classList.toggle("preview-diff", !same);
+      buttons.forEach((btn) => {
+        const n = Number(btn.getAttribute("data-star")) || 0;
+        btn.classList.remove("hover-on", "hover-half", "hover-full", "hover-preview-half");
+        if (n < idx) btn.classList.add("hover-on");
+        else if (n === idx) {
+          if (half) btn.classList.add("hover-preview-half");
+          else btn.classList.add("hover-on");
+        }
+      });
+    }
+    function bindTicketInteractions(item, book) {
+      const stub = item.querySelector(".ticket-stub");
+      if (!stub || stub.dataset.bound === "1") return;
+      stub.dataset.bound = "1";
+      stub.addEventListener("contextmenu", (ev) => {
+        const t = ev.target;
+        if (t && t.closest && t.closest(".ticket-star, .ticket-check, .book-field-sync, [contenteditable='true']")) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        saveSingleTicketImage(book, stub).catch((e) => showErr(e.message));
+      });
+      stub.addEventListener("mousemove", (ev) => {
+        const star = ev.target.closest && ev.target.closest(".ticket-star");
+        if (!star || !stub.contains(star)) {
+          if (ev.target.closest && ev.target.closest(".ticket-stars")) return;
+          clearTicketStarHover(stub);
+          return;
+        }
+        paintTicketStarHover(stub, ev.clientX, ticketRating(book));
+      });
+      stub.addEventListener("mouseleave", () => clearTicketStarHover(stub));
+      stub.addEventListener("click", (ev) => {
+        const syncBtn = ev.target.closest && ev.target.closest(".book-field-sync");
+        if (syncBtn) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const val = ticketDisplayModel(book).recorder || defaultTicketRecorder();
+          if (!val) {
+            showErr("记录人为空");
+            return;
+          }
+          ticketStore.lastRecorder = val;
+          const books = (bookData && bookData.books) || [];
+          books.forEach((b) => {
+            if (!b || !b.id) return;
+            patchTicketBook(b.id, { recorder: val });
+          });
+          persistTicketStore();
+          renderTickets();
+          return;
+        }
+        const star = ev.target.closest && ev.target.closest(".ticket-star");
+        if (star) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const full = Number(star.getAttribute("data-star")) || 0;
+          const rect = star.getBoundingClientRect();
+          const half = (ev.clientX - rect.left) < rect.width * 0.5;
+          let next = half ? full - 0.5 : full;
+          next = Math.max(0.5, Math.min(10, next));
+          const cur = ticketRating(book);
+          if (cur === next) next = Math.max(0, next - 0.5);
+          patchTicketBook(book.id, { rating: next });
+          const row = stub.querySelector('.ticket-rating-row[data-field="rating"]');
+          if (row) {
+            row.innerHTML = '<span class="ticket-lab">综合评分:</span>' + starsHtml(next);
+          }
+          clearTicketStarHover(stub);
+          return;
+        }
+        const fieldEl = ev.target.closest && ev.target.closest("[data-field]");
+        if (!fieldEl || !stub.contains(fieldEl)) return;
+        const field = fieldEl.getAttribute("data-field");
+        if (!field || field === "rating") return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        // Edit value span inside fact cells; keep bold label intact.
+        const editEl = fieldEl.classList.contains("ticket-fact")
+          ? (fieldEl.querySelector(".ticket-val") || fieldEl)
+          : fieldEl;
+        startTicketFieldEdit(editEl, book, field);
+      });
+    }
+    function startTicketFieldEdit(el, book, field) {
+      if (!el || el.isContentEditable || el.dataset.editing === "1") return;
+      if (el.querySelector && el.querySelector("[contenteditable='true']")) return;
+      el.dataset.editing = "1";
+      const model = ticketDisplayModel(book);
+      const suffixFields = { author: " 著", translator: " 译", publisher: " 出版" };
+      const isNameSuffix = !!suffixFields[field];
+      let editTarget = el;
+      let prev = "";
+      if (field === "year") prev = model.year || "";
+      else if (field === "author") prev = authorRaw(model.author) || "";
+      else if (field === "recorder") prev = model.recorder || "";
+      else if (field === "brand") prev = model.brand || "The Book";
+      else if (field === "isbn") prev = model.isbn || "";
+      else if (field === "wordCount") prev = String(model.words || "").replace(/,/g, "");
+      else if (field === "price") prev = model.price || "";
+      else if (field === "readRange") prev = model.readRange || "";
+      else if (field === "duration") prev = model.duration || "";
+      else if (field === "translator") prev = String(model.translator || "").replace(/\s*译\s*$/i, "").trim();
+      else if (field === "publisher") prev = String(model.publisher || "").replace(/\s*出版\s*$/i, "").trim();
+      else prev = model[field] || "";
+
+      let wrap = null;
+      let syncCtl = null;
+      if (field === "recorder") {
+        wrap = el.closest(".ticket-recorder-wrap");
+        if (wrap) {
+          wrap.classList.add("sync-on");
+          const syncBtn = wrap.querySelector(".book-field-sync");
+          if (syncBtn) {
+            syncBtn.title = "同步到全部票根";
+            syncBtn.setAttribute("aria-label", "同步到全部票根");
+            syncCtl = bindFieldSync(syncBtn, () => {
+              let next = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
+              if (!next) next = ticketDisplayModel(book).recorder || defaultTicketRecorder();
+              if (!next) {
+                showErr("记录人为空");
+                finish(false);
+                return;
+              }
+              ticketStore.lastRecorder = next;
+              const books = (bookData && bookData.books) || [];
+              books.forEach((b) => {
+                if (!b || !b.id) return;
+                patchTicketBook(b.id, { recorder: next });
+              });
+              persistTicketStore();
+              done = true;
+              el.removeEventListener("keydown", onKey);
+              el.removeEventListener("blur", onBlur);
+              if (syncCtl) syncCtl.detach();
+              el.contentEditable = "false";
+              delete el.dataset.editing;
+              wrap.classList.remove("sync-on");
+              renderTickets();
+            });
+          }
+        }
+      }
+
+      el.classList.remove("ticket-empty");
+      if (isNameSuffix) {
+        // Name editable; suffix stays visible and non-editable.
+        let nameEl = el.querySelector(".ticket-name");
+        let sufEl = el.querySelector(".ticket-suffix");
+        if (!nameEl || !sufEl) {
+          el.textContent = "";
+          nameEl = document.createElement("span");
+          nameEl.className = "ticket-name";
+          sufEl = document.createElement("span");
+          sufEl.className = "ticket-suffix";
+          sufEl.textContent = suffixFields[field];
+          el.appendChild(nameEl);
+          el.appendChild(sufEl);
+        } else {
+          sufEl.textContent = suffixFields[field];
+        }
+        nameEl.textContent = prev;
+        editTarget = nameEl;
+      } else {
+        el.textContent = prev;
+      }
+      editTarget.contentEditable = "true";
+      editTarget.spellcheck = false;
+      editTarget.focus({ preventScroll: true });
+      const range = document.createRange();
+      range.selectNodeContents(editTarget);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      let done = false;
+      const finish = (save) => {
+        if (done) return;
+        done = true;
+        editTarget.removeEventListener("keydown", onKey);
+        editTarget.removeEventListener("blur", onBlur);
+        if (syncCtl) syncCtl.detach();
+        editTarget.contentEditable = "false";
+        delete el.dataset.editing;
+        if (wrap) wrap.classList.remove("sync-on");
+        let next = String(editTarget.innerText || editTarget.textContent || "").replace(/\s+/g, " ").trim();
+        if (field === "year") next = next.replace(/[()（）]/g, "").trim();
+        if (field === "author") next = authorRaw(next);
+        if (field === "isbn") next = next.replace(/^ISBN\s*[:：]?\s*/i, "").trim();
+        if (field === "wordCount") next = next.replace(/^字数\s*[:：]?\s*/i, "").replace(/,/g, "").trim();
+        if (field === "price") next = next.replace(/^定价\s*[:：]?\s*/i, "").trim();
+        if (field === "readRange") next = next.replace(/^阅读时间\s*[:：]?\s*/i, "").trim();
+        if (field === "duration") next = next.replace(/^阅读时长\s*[:：]?\s*/i, "").trim();
+        if (field === "translator") next = next.replace(/\s*译\s*$/i, "").trim();
+        if (field === "publisher") next = next.replace(/\s*出版\s*$/i, "").trim();
+        if (!save) {
+          refreshTicketItemInPlace(book);
+          return;
+        }
+        const patch = {};
+        patch[field] = next;
+        if (field === "recorder") {
+          ticketStore.lastRecorder = next;
+          persistTicketStore();
+        }
+        patchTicketBook(book.id, patch);
+        refreshTicketItemInPlace(book);
+      };
+      function onKey(ev) {
+        if (ev.isComposing || ev.keyCode === 229) return;
+        if (ev.key === "Enter") { ev.preventDefault(); finish(true); }
+        if (ev.key === "Escape") { ev.preventDefault(); finish(false); }
+      }
+      function onBlur() {
+        if (syncCtl && syncCtl.held()) return;
+        finish(true);
+      }
+      editTarget.addEventListener("keydown", onKey);
+      editTarget.addEventListener("blur", onBlur);
+    }
+    function renderTickets() {
+      const box = document.getElementById("bookView");
+      if (!box) return;
+      const keepScroll = viewMode === "tickets";
+      if (keepScroll) {
+        booksScrollHold++;
+        // Prefer persisted tickets pan — do NOT derive from shared booksPanX/Y
+        // (still holding cards coords right after books→tickets).
+        const saved = loadTicketsPanPref();
+        if (saved) {
+          booksPanAnchor = saved;
+          booksPanNeedsCenter = false;
+        } else {
+          const keep = booksPanContentAnchor();
+          if (keep) {
+            booksPanAnchor = keep;
+            booksPanNeedsCenter = false;
+          }
+        }
+      }
+      const finishScroll = () => {
+        if (!keepScroll) return;
+        // Re-assert saved tickets pan after DOM rebuild (layout may have run early).
+        const saved = loadTicketsPanPref();
+        if (saved) {
+          booksPanAnchor = saved;
+          booksPanNeedsCenter = false;
+        }
+        restoreBooksScroll();
+        scheduleBooksViewScale();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => { booksScrollHold = Math.max(0, booksScrollHold - 1); });
+        });
+      };
+      applyTicketPaletteCss();
+      paintTicketsChrome();
+      box.innerHTML = "";
+      const all = (bookData && bookData.books) || [];
+      if (!all.length) {
+        box.innerHTML = '<p class="hint">还没有书籍记录。同步微信读书或手动添加后会出现在这里。</p>';
+        finishScroll();
+        return;
+      }
+      const books = visibleBooks(all);
+      if (!books.length) {
+        box.innerHTML = '<p class="hint">没有符合筛选的书籍。</p>';
+        finishScroll();
+        return;
+      }
+      if (ticketsPeriodOn) {
+        const groups = groupBooksByPeriodMonth(books);
+        groups.forEach((group) => {
+          appendTicketMonthGap(box, group.key, group.books);
+          group.books.forEach((book) => appendTicketItem(box, book));
+        });
+      } else {
+        books.forEach((book) => appendTicketItem(box, book));
+      }
+      requestAnimationFrame(() => syncTicketNotchMasks(box));
+      finishScroll();
+    }
+    function exportableTicketStubs(selectedOnly) {
+      const box = document.getElementById("bookView");
+      if (!box) return [];
+      return Array.from(box.querySelectorAll(".ticket-item")).filter((item) => {
+        if (!selectedOnly) return true;
+        const id = String(item.dataset.bookId || "");
+        return ticketsSelected.has(id);
+      }).map((item) => item.querySelector(".ticket-stub")).filter(Boolean);
+    }
+    function cloneTicketForExport(stub) {
+      const clone = stub.cloneNode(true);
+      clone.querySelectorAll(".book-field-sync").forEach((el) => el.remove());
+      clone.querySelectorAll("[contenteditable]").forEach((el) => {
+        el.contentEditable = "false";
+        delete el.dataset.editing;
+      });
+      clone.querySelectorAll("button.ticket-star").forEach((btn) => {
+        const span = document.createElement("span");
+        span.className = btn.className;
+        span.setAttribute("aria-hidden", "true");
+        span.innerHTML = btn.innerHTML;
+        btn.replaceWith(span);
+      });
+      return clone;
+    }
+    function ticketsExportNodeList(stubs) {
+      const list = Array.from(stubs || []);
+      if (!list.length) return [];
+      // Single stub (右键单个): no month gaps / labels.
+      if (list.length === 1) return [{ kind: "ticket", el: list[0] }];
+      const view = document.getElementById("bookView");
+      const nodes = [];
+      if (ticketsPeriodOn && view) {
+        let pendingGap = null;
+        Array.from(view.children).forEach((child) => {
+          if (child.classList.contains("ticket-month-gap")) {
+            pendingGap = child;
+            return;
+          }
+          if (!child.classList.contains("ticket-item")) return;
+          const stub = child.querySelector(".ticket-stub");
+          if (!stub || list.indexOf(stub) < 0) return;
+          if (pendingGap) {
+            nodes.push({ kind: "gap", el: pendingGap });
+            pendingGap = null;
+          }
+          nodes.push({ kind: "ticket", el: stub });
+        });
+        return nodes;
+      }
+      return list.map((stub) => ({ kind: "ticket", el: stub }));
+    }
+    function extractCssUrl(value) {
+      const s = String(value || "").trim();
+      const m = /^url\(\s*(['"]?)(.+?)\1\s*\)$/i.exec(s);
+      return m ? m[2] : "";
+    }
+    function loadImageFromUrl(url) {
+      return new Promise((resolve, reject) => {
+        if (!url) {
+          reject(new Error("empty mask url"));
+          return;
+        }
+        const img = new Image();
+        img.decoding = "sync";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("mask load failed"));
+        img.src = url;
+      });
+    }
+    function ticketExportPreferScale(cssW, cssH) {
+      // Prefer 3×…4×, then +50% sharper export; still clamp to canvas max.
+      const maxDim = 32768;
+      const basePrefer = Math.max(3, Math.min(4, (window.devicePixelRatio || 2) * 1.5));
+      const prefer = basePrefer * 1.5;
+      return Math.max(1, Math.min(prefer, maxDim / Math.max(cssW, cssH, 1)));
+    }
+    /** Empty spacer matching live `.ticket-month-gap` height (no YYYY-MM text). */
+    function paintTicketMonthGapSpacer(cssW, scale) {
+      const padTop = 25;
+      const padBottom = 15;
+      const fontCss = 13.2;
+      const line = fontCss * 1.2;
+      const w = Math.max(1, Math.round(cssW * scale));
+      const h = Math.max(1, Math.round((padTop + padBottom + line) * scale));
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d", { alpha: true });
+      ctx.clearRect(0, 0, w, h);
+      return c;
+    }
+    async function applyTicketMaskToCanvas(srcCanvas, maskUrl, stubFill) {
+      const out = document.createElement("canvas");
+      out.width = srcCanvas.width;
+      out.height = srcCanvas.height;
+      const ctx = out.getContext("2d", { alpha: true });
+      // Paper fill first — html2canvas often drops CSS-var backgrounds.
+      const fill = cssColor(stubFill || TICKET_PALETTE_DEFAULT.stub);
+      ctx.fillStyle = fill;
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.drawImage(srcCanvas, 0, 0);
+      try {
+        const maskImg = await loadImageFromUrl(maskUrl || "/ticket-stub-mask.svg");
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.drawImage(maskImg, 0, 0, out.width, out.height);
+        ctx.globalCompositeOperation = "source-over";
+      } catch (_) {
+        // Keep rectangle if mask fails — still export content.
+      }
+      return out;
+    }
+    async function captureOneTicketStubCanvas(stub, scale) {
+      const stubBg = cssColor((ticketStore.palette || {}).stub || TICKET_PALETTE_DEFAULT.stub);
+      const ink = cssColor((ticketStore.palette || {}).ink || TICKET_PALETTE_DEFAULT.ink);
+      const clone = cloneTicketForExport(stub);
+      // Drop CSS mask for html2canvas (it ignores mask → full rect); re-apply via canvas.
+      clone.style.webkitMaskImage = "none";
+      clone.style.maskImage = "none";
+      // Bake absolute colors — html2canvas 1.4.1 often skips var(--ticket-*).
+      clone.style.background = stubBg;
+      clone.style.backgroundColor = stubBg;
+      clone.style.color = ink;
+      const host = document.createElement("div");
+      host.setAttribute("aria-hidden", "true");
+      host.style.cssText = "position:fixed;left:-10000px;top:0;width:280px;background:transparent;overflow:visible;z-index:-1;";
+      applyTicketPaletteVars(host);
+      host.appendChild(clone);
+      document.body.appendChild(host);
+      try {
+        const maskCss = stub.style.maskImage || stub.style.webkitMaskImage || "";
+        const maskUrl = extractCssUrl(maskCss) || "/ticket-stub-mask.svg";
+        await waitForImages(host);
+        await waitPaint(1);
+        const w = Math.max(clone.scrollWidth, clone.offsetWidth, 280);
+        const h = Math.max(clone.scrollHeight, clone.offsetHeight, 1);
+        const raw = await withLiveToneFiltersCleared(() => html2canvas(clone, {
+          backgroundColor: stubBg,
+          scale: scale,
+          useCORS: true,
+          logging: false,
+          width: w,
+          height: h,
+          windowWidth: w,
+          windowHeight: h,
+          scrollX: 0,
+          scrollY: 0,
+          x: 0,
+          y: 0,
+          onclone: (doc, el) => {
+            clearExportAncestors(doc, el);
+            clearToneFiltersForCapture(doc, el);
+            el.style.webkitMaskImage = "none";
+            el.style.maskImage = "none";
+            el.style.background = stubBg;
+            el.style.backgroundColor = stubBg;
+            el.style.color = ink;
+          }
+        }));
+        return await applyTicketMaskToCanvas(raw, maskUrl, stubBg);
+      } finally {
+        if (host.parentNode) host.parentNode.removeChild(host);
+      }
+    }
+    function stitchTicketExportCanvases(pieces, gapCssPx, scale, fill) {
+      const gap = Math.max(0, Math.round(gapCssPx * scale));
+      let totalH = 0;
+      let maxW = 1;
+      pieces.forEach((p, i) => {
+        maxW = Math.max(maxW, p.width);
+        totalH += p.height;
+        if (i < pieces.length - 1 && pieces[i].kind === "ticket" && pieces[i + 1].kind === "ticket") {
+          totalH += gap;
+        }
+      });
+      const out = document.createElement("canvas");
+      out.width = maxW;
+      out.height = Math.max(1, totalH);
+      const ctx = out.getContext("2d", { alpha: true });
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fillRect(0, 0, out.width, out.height);
+      } else {
+        ctx.clearRect(0, 0, out.width, out.height);
+      }
+      let y = 0;
+      pieces.forEach((p, i) => {
+        const x = Math.round((maxW - p.width) / 2);
+        ctx.drawImage(p.canvas, x, y);
+        y += p.height;
+        if (i < pieces.length - 1 && p.kind === "ticket" && pieces[i + 1].kind === "ticket") {
+          y += gap;
+        }
+      });
+      return out;
+    }
+    async function captureTickets(stubs, opts) {
+      opts = opts || {};
+      const list = stubs && stubs.length ? Array.from(stubs) : null;
+      const nodes = ticketsExportNodeList(list);
+      if (!nodes.length) throw new Error("没有可保存的票根");
+      await ensureHtml2Canvas();
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.ready; } catch (e) {}
+      }
+      // Refresh notch masks on live stubs before reading mask URLs.
+      syncTicketNotchMasks(document.getElementById("bookView"));
+      // Outer pad ×10 vs prior defaults (12 / 8).
+      const basePad = opts.pad != null ? Math.max(0, Number(opts.pad) || 0) : 12;
+      const pad = Math.round(basePad * 10);
+      const fill = cssColor((ticketStore.palette || {}).canvas || TICKET_PALETTE_DEFAULT.canvas);
+      const ticketN = nodes.filter((n) => n.kind === "ticket").length;
+      const estH = ticketN * 620 + nodes.length * 40 + pad * 2;
+      const scale = ticketExportPreferScale(280 + pad * 2, estH);
+      const pieces = [];
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (node.kind === "gap") {
+          // Bulk + 按月: keep vertical spacing only — no YYYY-MM text in export.
+          const c = paintTicketMonthGapSpacer(280, scale);
+          pieces.push({ kind: "gap", canvas: c, width: c.width, height: c.height });
+          continue;
+        }
+        const c = await captureOneTicketStubCanvas(node.el, scale);
+        pieces.push({ kind: "ticket", canvas: c, width: c.width, height: c.height });
+      }
+      const stitched = stitchTicketExportCanvases(pieces, 0.5, scale, fill);
+      return padCanvasWithColor(stitched, pad, scale, fill);
+    }
+    function ticketsExportName() {
+      const d = new Date();
+      // Avoid name collision with local `pad` CSS-px vars in captureTickets.
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return "票根-" + d.getFullYear() + mm + dd + ".png";
+    }
+    function ticketExportName(book) {
+      const title = String((book && book.title) || "票根").replace(/[\\/:*?"<>|]+/g, "_").slice(0, 40);
+      return "票根-" + title + ".png";
+    }
+    async function saveTicketsImage() {
+      if (viewMode !== "tickets") return;
+      const btn = document.getElementById("saveTicketsImg");
+      const prevLabel = btn ? btn.textContent : "保存";
+      if (btn) { btn.disabled = true; btn.textContent = "保存中"; }
+      const status = document.getElementById("status");
+      const prevStatus = status ? status.textContent : "";
+      showErr("");
+      try {
+        const selectedOnly = ticketsSelectOn;
+        const stubs = exportableTicketStubs(selectedOnly);
+        if (!stubs.length) throw new Error(selectedOnly ? "请先勾选要保存的票根" : "没有可保存的票根");
+        if (status) status.textContent = "正在生成票根长图…";
+        const canvas = await withDesktopCapture(() => captureTickets(stubs));
+        const blob = await canvasToPngBlob(canvas);
+        if (status) status.textContent = await savePngBlob(ticketsExportName(), blob);
+      } catch (e) {
+        showErr(e.message || "保存票根失败");
+        if (status) status.textContent = prevStatus;
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = prevLabel; }
+      }
+    }
+    async function saveSingleTicketImage(book, stub) {
+      if (viewMode !== "tickets") return;
+      if (!stub) { showErr("没有可导出的票根"); return; }
+      const status = document.getElementById("status");
+      const prevStatus = status ? status.textContent : "";
+      showErr("");
+      if (status) status.textContent = "正在导出票根…";
+      try {
+        const canvas = await withDesktopCapture(() => captureTickets([stub], { pad: 8 }));
+        const blob = await canvasToPngBlob(canvas);
+        if (status) status.textContent = await savePngBlob(ticketExportName(book), blob);
+      } catch (e) {
+        showErr(e.message || "导出票根失败");
+        if (status) status.textContent = prevStatus;
+      }
+    }
+    function currentTicketPaletteHex() {
+      return hsbToHex(
+        document.getElementById("tkHSlide").value,
+        document.getElementById("tkSSlide").value,
+        document.getElementById("tkVSlide").value
+      );
+    }
+    function paintTicketPaletteTracks() {
+      const hEl = document.getElementById("tkHSlide");
+      const sEl = document.getElementById("tkSSlide");
+      const vEl = document.getElementById("tkVSlide");
+      if (!hEl || !sEl || !vEl) return;
+      const h = Number(hEl.value);
+      const s = Number(sEl.value);
+      const v = Number(vEl.value);
+      const hueHex = hsbToHex(h, 100, 100);
+      const brightHex = hsbToHex(h, s, 100);
+      document.getElementById("tkHTrack").style.backgroundImage =
+        "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)";
+      document.getElementById("tkSTrack").style.backgroundImage =
+        "linear-gradient(to right, #808080, " + hueHex + ")";
+      document.getElementById("tkBTrack").style.backgroundImage =
+        "linear-gradient(to right, #000000, " + brightHex + ")";
+      document.getElementById("tkHKnob").style.left = rangeKnobPct(hEl) + "%";
+      document.getElementById("tkSKnob").style.left = rangeKnobPct(sEl) + "%";
+      document.getElementById("tkBKnob").style.left = rangeKnobPct(vEl) + "%";
+      const hex = document.getElementById("tkHexVal");
+      if (hex && document.activeElement !== hex) hex.value = currentTicketPaletteHex();
+    }
+    function setTicketPaletteSlidersFromHex(hex) {
+      const hsb = hexToHsb(hex);
+      document.getElementById("tkHSlide").value = String(hsb.h);
+      document.getElementById("tkSSlide").value = String(hsb.s);
+      document.getElementById("tkVSlide").value = String(hsb.v);
+      document.getElementById("tkHVal").value = String(hsb.h);
+      document.getElementById("tkSVal").value = String(hsb.s);
+      document.getElementById("tkVVal").value = String(hsb.v);
+      paintTicketPaletteTracks();
+    }
+    function syncTicketPaletteTargetUi() {
+      document.querySelectorAll("#ticketSwatchRow [data-ticket-color]").forEach((btn) => {
+        btn.classList.toggle("on", btn.getAttribute("data-ticket-color") === ticketPaletteTarget);
+      });
+      const hex = cssColor((ticketStore.palette || {})[ticketPaletteTarget] || TICKET_PALETTE_DEFAULT[ticketPaletteTarget]);
+      setTicketPaletteSlidersFromHex(hex);
+    }
+    function applyTicketPaletteFromSliders() {
+      const hex = currentTicketPaletteHex();
+      if (!ticketStore.palette) ticketStore.palette = Object.assign({}, TICKET_PALETTE_DEFAULT);
+      ticketStore.palette[ticketPaletteTarget] = hex;
+      persistTicketStore();
+      applyTicketPaletteCss();
+      paintTicketPaletteTracks();
+    }
+    function openTicketPaletteMenu(anchor) {
+      const menu = document.getElementById("ticketPaletteMenu");
+      if (!menu) return;
+      menu.classList.add("open");
+      syncTicketPaletteTargetUi();
+      applyTicketPaletteCss();
+      if (typeof placeMenu === "function") placeMenu(menu, anchor || null, 320, 280, true);
+      else {
+        const r = (anchor && anchor.getBoundingClientRect) ? anchor.getBoundingClientRect() : null;
+        const pad = 8;
+        const br = r || { left: 20, bottom: 90 };
+        menu.style.left = Math.max(pad, Math.min(br.left, window.innerWidth - 320 - pad)) + "px";
+        menu.style.top = Math.max(pad, Math.min((br.bottom || 60) + 8, window.innerHeight - 280 - pad)) + "px";
+      }
+    }
+    function closeTicketPaletteMenu() {
+      const menu = document.getElementById("ticketPaletteMenu");
+      if (!menu) return;
+      menu.classList.remove("open");
+    }
+    (function bindTicketPaletteUi() {
+      const menu = document.getElementById("ticketPaletteMenu");
+      if (!menu) return;
+      const row = document.getElementById("ticketSwatchRow");
+      if (row) {
+        row.addEventListener("click", (ev) => {
+          const btn = ev.target.closest("[data-ticket-color]");
+          if (!btn) return;
+          ticketPaletteTarget = btn.getAttribute("data-ticket-color") || "canvas";
+          syncTicketPaletteTargetUi();
+        });
+      }
+      ["tkHSlide", "tkSSlide", "tkVSlide"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", () => {
+          document.getElementById("tkHVal").value = document.getElementById("tkHSlide").value;
+          document.getElementById("tkSVal").value = document.getElementById("tkSSlide").value;
+          document.getElementById("tkVVal").value = document.getElementById("tkVSlide").value;
+          applyTicketPaletteFromSliders();
+        });
+      });
+      ["tkHVal", "tkSVal", "tkVVal"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("change", () => {
+          document.getElementById("tkHSlide").value = document.getElementById("tkHVal").value;
+          document.getElementById("tkSSlide").value = document.getElementById("tkSVal").value;
+          document.getElementById("tkVSlide").value = document.getElementById("tkVVal").value;
+          applyTicketPaletteFromSliders();
+        });
+      });
+      const hex = document.getElementById("tkHexVal");
+      if (hex) {
+        hex.addEventListener("change", () => {
+          const v = cssColor(hex.value);
+          if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
+          setTicketPaletteSlidersFromHex(v);
+          applyTicketPaletteFromSliders();
+        });
+      }
+      const reset = document.getElementById("ticketPaletteReset");
+      if (reset) {
+        reset.onclick = () => {
+          ticketStore.palette = Object.assign({}, TICKET_PALETTE_DEFAULT);
+          persistTicketStore();
+          applyTicketPaletteCss();
+          syncTicketPaletteTargetUi();
+        };
+      }
+      document.addEventListener("mousedown", (ev) => {
+        if (!menu.classList.contains("open")) return;
+        if (menu.contains(ev.target)) return;
+        if (ev.target.closest && ev.target.closest("#ticketsPaletteBtn")) return;
+        closeTicketPaletteMenu();
+      });
+    })();
+    applyTicketPaletteCss();
+
+    async function loadTickets(doSync) {
+      showErr("");
+      document.getElementById("status").textContent = "正在读取书籍…";
+      bookData = await api("/api/books");
+      applyMinuteFilters(bookData);
+      renderTickets();
+      const { st, synced } = await afterSyncStatus(doSync);
+      if (st && st.weread) {
+        lastLoginWeread = st.weread;
+        wereadDisplayName = String((st.weread && st.weread.name) || "").trim();
+      }
+      if (synced) {
+        bookData = await api("/api/books");
+        applyMinuteFilters(bookData);
+        renderTickets();
+      }
+      document.getElementById("status").textContent = loginLine(st.weread);
+    }
+
     document.getElementById("syncBtn").onclick = () => {
       manualSync().catch((e) => showErr(e.message));
     };
-    document.getElementById("tabTrack").onclick = () => {
-      ensureTrackDates();
-      paintTrackCellInputs();
-      setMode("track");
-      refresh(false).catch((e) => showErr(e.message));
-    };
     document.getElementById("tabMonth").onclick = () => {
+      // From books/tickets → restore last 月历 kind; if already on 日志, leave track to 月历.
       const kind = readCalKindPref();
       paintCalKindPick();
       setMode(kind);
+      if (typeof paintOrientPick === "function") paintOrientPick();
       refresh(false).catch((e) => showErr(e.message));
     };
     document.getElementById("tabBooks").onclick = () => { setMode("books"); refresh(false).catch((e) => showErr(e.message)); };
+    document.getElementById("tabTickets").onclick = () => { setMode("tickets"); refresh(false).catch((e) => showErr(e.message)); };
     document.getElementById("booksTools").addEventListener("click", (ev) => {
       const btn = ev.target.closest("button");
       if (!btn || !document.getElementById("booksTools").contains(btn)) return;
@@ -17778,7 +20243,7 @@
         setBooksCardDensity(btn.getAttribute("data-books-density"));
         return;
       }
-      if (btn.id === "saveBooksImg" || btn.id === "booksPeriodBtn" || btn.id === "booksEstimateBtn" || btn.id === "booksDetailsBtn" || btn.id === "booksHideBtn") return;
+      if (btn.id === "saveBooksImg" || btn.id === "booksPeriodBtn" || btn.id === "booksEstimateBtn" || btn.id === "booksDetailsBtn" || btn.id === "booksHideBtn" || btn.id === "booksSelectBtn") return;
       const sort = btn.getAttribute("data-books-sort");
       const order = btn.getAttribute("data-books-order");
       const filter = btn.getAttribute("data-books-filter");
@@ -17805,6 +20270,8 @@
     paintBooksPeriodBtn();
     paintBooksEstimateBtn();
     paintBooksDetailsBtn();
+    paintBooksHideBtn();
+    paintBooksSelectBtn();
     paintBooksSlotPill();
     paintBooksDensityPill();
     function closeSettingsPanel() {
@@ -17865,7 +20332,19 @@
       }[ch]));
     }
     const STATS_START = { y: 2026, m: 1, d: 1 };
-    let statsMode = "month";
+    const STATS_MODE_KEY = "readingLogStatsMode";
+    const STATS_MODES = ["week", "month", "year"];
+    function loadStatsMode() {
+      try {
+        const raw = String(localStorage.getItem(STATS_MODE_KEY) || "").trim().toLowerCase();
+        if (STATS_MODES.indexOf(raw) >= 0) return raw;
+      } catch (e) {}
+      return "month";
+    }
+    function persistStatsMode(mode) {
+      try { localStorage.setItem(STATS_MODE_KEY, mode); } catch (e) {}
+    }
+    let statsMode = loadStatsMode();
     let statsCursor = null;
     let statsPick = -1;
     let statsGen = 0;
@@ -18333,7 +20812,10 @@
     document.getElementById("statsModes").addEventListener("click", (ev) => {
       const btn = ev.target.closest("button[data-stats-mode]");
       if (!btn) return;
-      statsMode = btn.getAttribute("data-stats-mode");
+      const next = btn.getAttribute("data-stats-mode");
+      if (STATS_MODES.indexOf(next) < 0) return;
+      statsMode = next;
+      persistStatsMode(statsMode);
       statsPick = -1;
       if (!statsCursor) statsCursor = statsToday();
       paintStatsFromSource().catch((e) => showErr(e.message));

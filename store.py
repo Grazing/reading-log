@@ -583,6 +583,11 @@ def connect() -> sqlite3.Connection:
         ("cover_custom", "INTEGER"),
         ("author_custom", "INTEGER"),
         ("word_count_custom", "INTEGER"),
+        ("isbn", "TEXT"),
+        ("publisher", "TEXT"),
+        ("translator", "TEXT"),
+        ("price", "TEXT"),
+        ("publish_year", "TEXT"),
     ):
         if name not in cols:
             conn.execute("ALTER TABLE books ADD COLUMN %s %s" % (name, spec))
@@ -3222,6 +3227,13 @@ def upsert_book_full(book_id: str, title: str, source: str, meta: dict | None = 
             last_open = _max_open_stamp(conn, member_ids, last_open)
         author = (meta.get("author") or "").strip() or None
         finish_date = str(meta.get("finishDate") or "").strip()[:10] or None
+        isbn = str(meta.get("isbn") or "").strip() or None
+        publisher = str(meta.get("publisher") or "").strip() or None
+        translator = str(meta.get("translator") or "").strip() or None
+        price = str(meta.get("price") or "").strip() or None
+        publish_year = str(meta.get("publishYear") or meta.get("publish_year") or "").strip()[:4] or None
+        if publish_year and not publish_year.isdigit():
+            publish_year = None
         if row:
             stored_finish = str(row["finish_date"] or "").strip()[:10]
             if stored_finish and len(stored_finish) < 10:
@@ -3261,6 +3273,16 @@ def upsert_book_full(book_id: str, title: str, source: str, meta: dict | None = 
                 author = None
             if custom_words:
                 word_count = None
+            # WeRead/iReader sometimes send progress=100 with no finish date while the
+            # cursor is still mid-book. Refuse to persist that bare 100 (keeps prior %).
+            effective_finish = incoming_finish or stored_finish or None
+            if progress is not None:
+                try:
+                    progress_n = int(progress)
+                except (TypeError, ValueError):
+                    progress_n = None
+                if progress_n is not None and progress_n >= 100 and not effective_finish:
+                    progress = None
             conn.execute(
                 """
                 UPDATE books SET title = CASE WHEN COALESCE(title_custom, 0) = 1 THEN title ELSE ? END, source = ?,
@@ -3274,7 +3296,12 @@ def upsert_book_full(book_id: str, title: str, source: str, meta: dict | None = 
                         ELSE COALESCE(?, finish_date) END,
                     finish_date_custom = CASE
                         WHEN COALESCE(finish_date_custom, 0) = 1 AND TRIM(COALESCE(finish_date, '')) = '' THEN 0
-                        ELSE finish_date_custom END
+                        ELSE finish_date_custom END,
+                    isbn = COALESCE(?, isbn),
+                    publisher = COALESCE(?, publisher),
+                    translator = COALESCE(?, translator),
+                    price = COALESCE(?, price),
+                    publish_year = COALESCE(?, publish_year)
                 WHERE id = ?
                 """,
                 (
@@ -3286,16 +3313,30 @@ def upsert_book_full(book_id: str, title: str, source: str, meta: dict | None = 
                     last_open if last_open else None,
                     author,
                     incoming_finish,
+                    isbn,
+                    publisher,
+                    translator,
+                    price,
+                    publish_year,
                     book_id,
                 ),
             )
             return
         # New book only: settings-driven bar/title (cover channels when configured).
         bar, title_col = new_book_colors(book_id, cover)
+        insert_progress = progress
+        if insert_progress is not None:
+            try:
+                insert_n = int(insert_progress)
+            except (TypeError, ValueError):
+                insert_n = None
+            if insert_n is not None and insert_n >= 100 and not finish_date:
+                insert_progress = None
         conn.execute(
             """
-            INSERT INTO books(id, title, source, bar_color, title_color, cover, progress, word_count, last_open, author, finish_date)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO books(id, title, source, bar_color, title_color, cover, progress, word_count,
+                last_open, author, finish_date, isbn, publisher, translator, price, publish_year)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 book_id,
@@ -3304,11 +3345,16 @@ def upsert_book_full(book_id: str, title: str, source: str, meta: dict | None = 
                 bar,
                 title_col,
                 cover or "",
-                progress,
+                insert_progress,
                 word_count,
                 last_open or 0,
                 author or "",
                 finish_date or "",
+                isbn or "",
+                publisher or "",
+                translator or "",
+                price or "",
+                publish_year or "",
             ),
         )
 
@@ -3753,12 +3799,13 @@ def books_payload() -> dict:
             SELECT books.*,
                 COALESCE(SUM(CASE WHEN entries.seconds >= ? THEN entries.seconds ELSE 0 END), 0) AS seconds,
                 COUNT(DISTINCT CASE WHEN entries.seconds >= ? THEN entries.day END) AS read_days,
+                MIN(CASE WHEN entries.seconds >= ? THEN entries.day END) AS first_day,
                 MAX(CASE WHEN entries.seconds > 0 THEN entries.day END) AS last_day
             FROM books
             LEFT JOIN entries ON entries.book_id = books.id
             GROUP BY books.id
             """,
-            (threshold, threshold),
+            (threshold, threshold, threshold),
         ).fetchall()
         skip_books = short_lifetime_book_ids(conn, book_total_threshold)
     vis_map = book_visibility_map()
@@ -3767,7 +3814,12 @@ def books_payload() -> dict:
         item = dict(row)
         if item.get("id") in hidden or item.get("id") in skip_books:
             continue
+        first_day = str(item.get("first_day") or "")[:10]
+        if first_day and len(first_day) < 10:
+            first_day = ""
         last_day = str(item.get("last_day") or "")[:10]
+        if last_day and len(last_day) < 10:
+            last_day = ""
         # Prefer last day with real reading seconds over WeRead shelf updateTime.
         last_open = effective_last_open(item.get("last_open"), last_day)
         seconds = int(item.get("seconds") or 0)
@@ -3802,9 +3854,16 @@ def books_payload() -> dict:
                 "finished": finished,
                 "wordCount": int(item.get("word_count") or 0),
                 "author": item.get("author") or "",
+                "isbn": item.get("isbn") or "",
+                "publisher": item.get("publisher") or "",
+                "translator": item.get("translator") or "",
+                "price": item.get("price") or "",
+                "publishYear": item.get("publish_year") or "",
                 "seconds": seconds,
                 "minutes": seconds // 60,
                 "readDays": days,
+                "firstDay": first_day or None,
+                "lastDay": last_day or None,
                 "lastOpen": last_open,
                 "lastOpened": last_open,
                 "finishDate": finish_date,

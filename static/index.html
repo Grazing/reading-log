@@ -5217,6 +5217,29 @@
       padding: 0;
     }
     .ticket-item + .ticket-item { margin-top: 0.5px; }
+    /* Discrete (滚动 off) + 按月: sticky YYYY-MM above the single stub. */
+    .tickets-sticky-month {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      width: 265px;
+      box-sizing: border-box;
+      text-align: center;
+      margin: 0 auto;
+      padding: 12px 0 10px;
+      background: var(--ticket-canvas, #f5f1eb);
+      color: var(--ticket-bg-50, rgba(252, 251, 248, 0.5));
+      font-size: 13.2px;
+      font-weight: 400;
+      line-height: 1.2;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+    body.mode-tickets.tickets-scroll-off.tickets-period-on .tickets-sticky-month {
+      display: block;
+    }
     /* 按月：每月顶部 — 画布底，文字为票根底色 50%；上下边距 25/15。字号同 .ticket-year。 */
     .ticket-month-gap {
       position: relative;
@@ -5485,6 +5508,14 @@
       cursor: text;
     }
     .ticket-meta-line .ticket-sep { opacity: 0.45; margin: 0 4px; }
+    /* Empty translator: keep a clickable slot, no "|" and no "-" placeholder. */
+    .ticket-meta-line .ticket-part[data-field="translator"]:empty {
+      display: inline-block;
+      min-width: 10px;
+      min-height: 1em;
+      vertical-align: baseline;
+      cursor: text;
+    }
     .ticket-facts {
       display: grid;
       /*
@@ -6226,6 +6257,7 @@
       </div>
       <div class="books-seg" role="group" aria-label="配色与缩放">
         <button type="button" id="ticketsPaletteBtn" title="票根配色（不受全局调色/色调影响）">配色</button>
+        <button type="button" class="cal-nav on" id="ticketsScrollBtn" title="连续滚动票根" aria-pressed="true">滚动</button>
         <label class="wall-size-tool books-zoom-tool" title="视图缩放：100% 为适应窗口宽度">
           <span class="wall-size-field">
             <input type="number" id="ticketsViewZoom" min="2" max="400" step="1" value="100" inputmode="numeric" aria-label="视图缩放百分比" />
@@ -6623,7 +6655,7 @@
         <button type="button" class="primary" id="saveSettings">保存</button>
       </div>
       <div class="settings-meta">
-        <p>当前版本 0.2(Beta)</p>
+        <p>当前版本 0.3.1</p>
         <p>问题反馈 <a href="mailto:896968759@qq.com">896968759@qq.com</a></p>
       </div>
     </div>
@@ -18253,6 +18285,11 @@
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
       if (isEditableKeyTarget(ev.target) || isEditableKeyTarget(document.activeElement)) return;
       if (monthPickerOpen()) return;
+      if (viewMode === "tickets" && !ticketsScrollOn) {
+        ev.preventDefault();
+        shiftTicketsPage(prevKey ? -1 : 1);
+        return;
+      }
       if (viewMode === "recent") {
         if (wallpaperMode) return;
         ev.preventDefault();
@@ -18425,6 +18462,29 @@
         if (viewMode === "books") persistBooksPan();
         else if (viewMode === "tickets") persistTicketsPan();
         return true;
+      }
+      // Tickets discrete mode: wheel pages stubs (same as calendar scroll-off).
+      if (viewMode === "tickets" && !ticketsScrollOn) {
+        if (!dx && !dy) return false;
+        if (isMonthWheelIgnored(ev.target)) return false;
+        const now = Date.now();
+        if (now - wheelPageLast > WHEEL_GESTURE_GAP) {
+          wheelPageAcc = 0;
+          wheelPageConsumed = false;
+        }
+        wheelPageLast = now;
+        wheelPageAcc += dy || dx;
+        if (!wheelPageConsumed && Math.abs(wheelPageAcc) >= WHEEL_PAGE_THRESHOLD) {
+          wheelPageConsumed = true;
+          ev.preventDefault();
+          shiftTicketsPage(wheelPageAcc > 0 ? 1 : -1);
+          return true;
+        }
+        if (wheelPageConsumed) {
+          ev.preventDefault();
+          return true;
+        }
+        return false;
       }
       if (!dx && !dy) return false;
       ev.preventDefault();
@@ -18958,6 +19018,7 @@
     document.getElementById("saveBooksImg").onclick = () => { saveBooksImage().catch((e) => showErr(e.message)); };
     document.getElementById("saveTicketsImg").onclick = () => { saveTicketsImage().catch((e) => showErr(e.message)); };
     document.getElementById("ticketsPeriodBtn").onclick = () => { setTicketsPeriod(!ticketsPeriodOn); };
+    document.getElementById("ticketsScrollBtn").onclick = () => { setTicketsScroll(!ticketsScrollOn); };
     document.getElementById("ticketsHideBtn").onclick = () => { setTicketsHide(!ticketsHideOn); };
     document.getElementById("ticketsSelectBtn").onclick = () => { setTicketsSelect(!ticketsSelectOn); };
     document.getElementById("ticketsPaletteBtn").onclick = (ev) => {
@@ -18993,7 +19054,7 @@
     document.getElementById("ticketsTools").addEventListener("click", (ev) => {
       const btn = ev.target.closest("button");
       if (!btn || !document.getElementById("ticketsTools").contains(btn)) return;
-      if (btn.id === "saveTicketsImg" || btn.id === "ticketsPeriodBtn" || btn.id === "ticketsHideBtn" || btn.id === "ticketsSelectBtn" || btn.id === "ticketsPaletteBtn") return;
+      if (btn.id === "saveTicketsImg" || btn.id === "ticketsPeriodBtn" || btn.id === "ticketsScrollBtn" || btn.id === "ticketsHideBtn" || btn.id === "ticketsSelectBtn" || btn.id === "ticketsPaletteBtn") return;
       const sort = btn.getAttribute("data-tickets-sort");
       const order = btn.getAttribute("data-tickets-order");
       const filter = btn.getAttribute("data-tickets-filter");
@@ -19338,12 +19399,24 @@
     /* ── 票根模式 ── */
     const TICKETS_STORE_KEY = "readingLogTickets";
     const TICKETS_PERIOD_KEY = "readingLogTicketsPeriod";
+    const TICKETS_SCROLL_KEY = "readingLogTicketsScroll";
+    const TICKETS_SCROLL_DEFAULT = true;
     const TICKET_PALETTE_DEFAULT = {
       canvas: "#f5f1eb",
       stub: "#fcfbf8",
       ink: "#3a322c"
     };
     let ticketsPeriodOn = loadBooksFlag(TICKETS_PERIOD_KEY);
+    function loadTicketsScrollPref() {
+      try {
+        const raw = localStorage.getItem(TICKETS_SCROLL_KEY);
+        if (raw === "0") return false;
+        if (raw === "1") return true;
+      } catch (e) {}
+      return TICKETS_SCROLL_DEFAULT;
+    }
+    let ticketsScrollOn = loadTicketsScrollPref();
+    let ticketsPageIndex = 0;
     let ticketsSelectOn = false;
     let ticketsSelected = new Set();
     let ticketStore = (function loadTicketStore() {
@@ -19519,6 +19592,14 @@
         periodBtn.setAttribute("aria-pressed", ticketsPeriodOn ? "true" : "false");
         periodBtn.title = ticketsPeriodOn ? "关闭按月分段" : "按月份分段显示票根";
       }
+      const scrollBtn = document.getElementById("ticketsScrollBtn");
+      if (scrollBtn) {
+        scrollBtn.classList.toggle("on", !!ticketsScrollOn);
+        scrollBtn.setAttribute("aria-pressed", ticketsScrollOn ? "true" : "false");
+        scrollBtn.title = ticketsScrollOn
+          ? "连续滚动票根（关闭后单张显示，滚轮或方向键切换）"
+          : "单张显示，滚轮或方向键切换；与按月同开时顶部常驻年月";
+      }
       const hideBtn = document.getElementById("ticketsHideBtn");
       if (hideBtn) {
         hideBtn.classList.toggle("on", !!ticketsHideOn);
@@ -19534,10 +19615,47 @@
       document.body.classList.toggle("tickets-select-on", !!ticketsSelectOn && viewMode === "tickets");
       document.body.classList.toggle("tickets-hide-on", !!ticketsHideOn && viewMode === "tickets");
       document.body.classList.toggle("tickets-period-on", !!ticketsPeriodOn && viewMode === "tickets");
+      document.body.classList.toggle("tickets-scroll-off", !ticketsScrollOn && viewMode === "tickets");
       const zoom = document.getElementById("ticketsViewZoom");
       if (zoom) zoom.value = String(ticketsViewZoomPct);
       const search = document.getElementById("ticketsSearch");
       if (search && search.value !== booksSearchQuery) search.value = booksSearchQuery;
+    }
+    function ticketsVisibleBookList() {
+      const all = (bookData && bookData.books) || [];
+      return visibleBooks(all, { forTickets: true });
+    }
+    function clampTicketsPageIndex(list) {
+      const n = (list && list.length) || 0;
+      if (n <= 0) {
+        ticketsPageIndex = 0;
+        return 0;
+      }
+      if (ticketsPageIndex < 0) ticketsPageIndex = 0;
+      if (ticketsPageIndex >= n) ticketsPageIndex = n - 1;
+      return ticketsPageIndex;
+    }
+    function setTicketsScroll(on) {
+      ticketsScrollOn = !!on;
+      try { localStorage.setItem(TICKETS_SCROLL_KEY, ticketsScrollOn ? "1" : "0"); } catch (e) {}
+      if (!ticketsScrollOn) {
+        booksPanNeedsCenter = true;
+        booksPanAnchor = null;
+      }
+      paintTicketsChrome();
+      if (viewMode === "tickets") renderTickets();
+    }
+    function shiftTicketsPage(delta) {
+      if (ticketsScrollOn || viewMode !== "tickets") return false;
+      const list = ticketsVisibleBookList();
+      if (!list.length) return false;
+      const next = Math.max(0, Math.min(list.length - 1, ticketsPageIndex + delta));
+      if (next === ticketsPageIndex) return true;
+      ticketsPageIndex = next;
+      booksPanNeedsCenter = true;
+      booksPanAnchor = null;
+      renderTickets();
+      return true;
     }
     /** Mask path notch center Y in viewBox units (original SVG ≈ 50.99). */
     function ticketMaskUrlForNotchCenter(tc) {
@@ -19766,11 +19884,15 @@
       item.className = "ticket-item";
       item.dataset.bookId = String(book.id);
       const checked = ticketsSelected.has(String(book.id));
+      const hasTranslator = !!(String(m.translator || "").replace(/\s*译\s*$/i, "").trim());
       const metaLine =
         '<div class="ticket-meta-line">' +
-        '<span class="ticket-part" data-field="translator">' +
-        ticketTranslatorPartsHtml(m.translator) +
-        '</span><span class="ticket-sep">|</span><span class="ticket-part" data-field="publisher">' +
+        '<span class="ticket-part" data-field="translator"' +
+        (hasTranslator ? "" : ' title="添加译者"') + ">" +
+        (hasTranslator ? ticketTranslatorPartsHtml(m.translator) : "") +
+        "</span>" +
+        (hasTranslator ? '<span class="ticket-sep">|</span>' : "") +
+        '<span class="ticket-part" data-field="publisher">' +
         ticketPublisherPartsHtml(m.publisher) +
         "</span></div>";
       const facts =
@@ -20189,7 +20311,17 @@
         finishScroll();
         return;
       }
-      if (ticketsPeriodOn) {
+      if (!ticketsScrollOn) {
+        // Discrete: one stub at a time; optional sticky YYYY-MM when 按月 is on.
+        const idx = clampTicketsPageIndex(books);
+        const book = books[idx];
+        const sticky = document.createElement("div");
+        sticky.className = "tickets-sticky-month";
+        sticky.setAttribute("aria-hidden", ticketsPeriodOn ? "false" : "true");
+        sticky.textContent = ticketsPeriodOn ? ticketMonthLabel(bookPeriodMonthKey(book)) : "";
+        box.appendChild(sticky);
+        appendTicketItem(box, book);
+      } else if (ticketsPeriodOn) {
         const groups = groupBooksByPeriodMonth(books);
         groups.forEach((group) => {
           appendTicketMonthGap(box, group.key, group.books);
@@ -20879,7 +21011,14 @@
       const status = document.getElementById("status");
       const prevStatus = status ? status.textContent : "";
       showErr("");
+      // Discrete (滚动 off) only keeps one stub in DOM — briefly expand for bulk export.
+      const restoreDiscrete = !ticketsScrollOn && !ticketsSelectOn;
       try {
+        if (restoreDiscrete) {
+          ticketsScrollOn = true;
+          renderTickets();
+          await waitPaint(1);
+        }
         const selectedOnly = ticketsSelectOn;
         const stubs = exportableTicketStubs(selectedOnly);
         if (!stubs.length) throw new Error(selectedOnly ? "请先勾选要保存的票根" : "没有可保存的票根");
@@ -20891,6 +21030,10 @@
         showErr(e.message || "保存票根失败");
         if (status) status.textContent = prevStatus;
       } finally {
+        if (restoreDiscrete) {
+          ticketsScrollOn = false;
+          renderTickets();
+        }
         if (btn) { btn.disabled = false; btn.textContent = prevLabel; }
       }
     }

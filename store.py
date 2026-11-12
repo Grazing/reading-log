@@ -368,7 +368,9 @@ def _fetch_cover_image_bytes(url: str) -> bytes | None:
         return None
     try:
         from urllib.parse import urlparse
-        from urllib.request import Request, urlopen
+        from urllib.request import Request
+
+        import weread
 
         host = (urlparse(text).hostname or "").lower()
         if any(
@@ -386,7 +388,7 @@ def _fetch_cover_image_bytes(url: str) -> bytes | None:
                 "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
             },
         )
-        with urlopen(req, timeout=8) as resp:
+        with weread.open_url(req, timeout=8) as resp:
             body = resp.read()
         return body if body else None
     except Exception:
@@ -698,6 +700,17 @@ def set_min_book_total_minutes(n: int) -> int:
     n = max(0, min(600, int(n)))
     set_setting("minBookTotalMinutes", str(n))
     return n
+
+
+def image_save_dir() -> str:
+    """Custom folder for saved/exported PNGs. Empty means ~/Downloads."""
+    return (get_setting("imageSaveDir", "") or "").strip()
+
+
+def set_image_save_dir(value) -> str:
+    raw = str(value or "").strip()
+    set_setting("imageSaveDir", raw)
+    return raw
 
 
 def sync_interval_minutes() -> int:
@@ -2755,7 +2768,7 @@ def replace_merged_book_days(book_id: str, source: str, rows: list[dict]) -> int
     """Write merged daily rows. User-locked (seconds_custom) days are left untouched."""
     book_id = str(book_id or "").strip()
     source = str(source or "").strip() or "weread"
-    if not book_id:
+    if not book_id or preserves_synced_days(book_id):
         return 0
     with connect() as conn:
         conn.execute(
@@ -3181,17 +3194,20 @@ def range_grid(start_in: date, end: date) -> list[date]:
 
 
 def range_payload(start: date | str, end: date | str) -> dict:
-    """Custom date-range planner payload in recent (period) style."""
+    """Custom date-range planner payload in recent (period) style.
+
+    Ranges that reach CAL_START still floor their start there (月历 / 统计).
+    A window that ends before CAL_START is kept as requested: 按月 headers ask
+    for that exact month, and folding it onto CAL_START reported zeros.
+    """
     start_in = parse_recent_end(start) if not isinstance(start, date) else start
     window_end = parse_recent_end(end) if not isinstance(end, date) else end
     if start_in is None or window_end is None:
         raise ValueError("起止日期无效")
     if window_end < start_in:
         raise ValueError("开始日期不能晚于结束日期")
-    if start_in < CAL_START:
+    if window_end >= CAL_START and start_in < CAL_START:
         start_in = CAL_START
-    if window_end < CAL_START:
-        window_end = CAL_START
     if window_end < start_in:
         window_end = start_in
     # Cap extreme ranges so PNG export stays manageable (~2 years of weeks).
@@ -3407,8 +3423,25 @@ def _day_blocked(conn, book_id: str, day: str) -> bool:
     return _day_is_custom(conn, book_id, day) or _day_is_tombstoned(conn, book_id, day)
 
 
+# These WeRead books keep the daily rows already stored. Sync must not delete
+# non-custom days, and must not lump a missing readDetail onto one day.
+PRESERVE_WEREAD_DAYS = {
+    "weread:3300011622",  # 底层逻辑
+    "weread:923092",  # 房思琪的初恋乐园
+    "weread:853116",  # 杀死一只知更鸟
+    "weread:33483909",  # 绝叫
+    "weread:3300197339",  # 罪与罚
+}
+
+
+def preserves_synced_days(book_id: str) -> bool:
+    return str(book_id or "").strip() in PRESERVE_WEREAD_DAYS
+
+
 def replace_book_days(book_id: str, source: str, rows: list[dict]) -> int:
     """Refresh synced days for one book. User-edited rows (seconds_custom) stay."""
+    if preserves_synced_days(book_id):
+        return 0
     with connect() as conn:
         conn.execute(
             """

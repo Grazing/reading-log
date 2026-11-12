@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 DATA_DIR = Path.home() / ".reading-log"
 SESSION_PATH = DATA_DIR / "ireader-session.json"
@@ -187,7 +187,9 @@ def _request(
         method = "POST" if data is not None else "GET"
     req = Request(url, data=data, headers=hdrs, method=method)
     try:
-        with urlopen(req, timeout=timeout) as resp:
+        import weread
+
+        with weread.open_url(req, timeout=timeout) as resp:
             body = resp.read()
             merged = dict(cookies)
             _merge_set_cookie(merged, resp.headers)

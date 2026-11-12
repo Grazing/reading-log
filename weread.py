@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener, getproxies
 
 TZ = timezone(timedelta(hours=8))
 DATA_DIR = Path.home() / ".reading-log"
@@ -164,6 +164,53 @@ def status() -> dict:
     }
 
 
+def _connection_refused(exc: BaseException) -> bool:
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if getattr(cur, "errno", None) in (61, 111):
+            return True
+        if "connection refused" in str(cur).lower():
+            return True
+        nxt = getattr(cur, "reason", None)
+        cur = nxt if isinstance(nxt, BaseException) and nxt is not cur else None
+    return False
+
+
+def _fresh_request(req: Request) -> Request:
+    """Copy a request. urllib's proxy handler rewrites req.host in place, so a
+    failed proxy attempt must not be reused for the direct retry."""
+    headers = {}
+    headers.update(getattr(req, "unredirected_hdrs", {}) or {})
+    headers.update(getattr(req, "headers", {}) or {})
+    return Request(
+        req.full_url,
+        data=req.data,
+        headers=headers,
+        origin_req_host=getattr(req, "origin_req_host", None),
+        unverifiable=bool(getattr(req, "unverifiable", False)),
+        method=getattr(req, "method", None),
+    )
+
+
+def open_url(req: Request, timeout: int = 20):
+    """Open outbound HTTP without sticking to a dead process-wide proxy.
+
+    urllib snapshots system proxies on the first urlopen of a process. This
+    server stays up for days; if that proxy later exits, every later request
+    fails with connection refused. Read proxies per call, and if the proxy
+    itself refuses, try once with a direct connection.
+    """
+    proxies = getproxies()
+    try:
+        return build_opener(ProxyHandler(dict(proxies))).open(_fresh_request(req), timeout=timeout)
+    except URLError as exc:
+        if not proxies or not _connection_refused(exc):
+            raise
+        return build_opener(ProxyHandler({})).open(_fresh_request(req), timeout=timeout)
+
+
 def _request(
     url: str,
     cookies: dict,
@@ -193,7 +240,7 @@ def _request(
         method = "POST" if data is not None else "GET"
     req = Request(url, data=data, headers=hdrs, method=method)
     try:
-        with urlopen(req, timeout=timeout) as resp:
+        with open_url(req, timeout=timeout) as resp:
             body = resp.read()
             merged = dict(cookies)
             _merge_set_cookie(merged, resp.headers)
@@ -629,7 +676,6 @@ def load_api_key() -> str:
 
 def call_agent(payload: dict) -> dict:
     import json as _json
-    from urllib.request import Request, urlopen
 
     key = load_api_key()
     if not key:
@@ -642,7 +688,7 @@ def call_agent(payload: dict) -> dict:
         headers={"Authorization": "Bearer %s" % key, "Content-Type": "application/json"},
         method="POST",
     )
-    with urlopen(req, timeout=25) as resp:
+    with open_url(req, timeout=25) as resp:
         data = _json.loads(resp.read().decode("utf-8"))
     if data.get("errcode"):
         raise RuntimeError(data.get("errmsg") or "微信读书接口错误")
@@ -1158,7 +1204,95 @@ def parse_shelf(data: dict) -> list:
             }
         )
     out.sort(key=lambda b: b.get("ts") or 0, reverse=True)
-    return out[:120]
+    return out
+
+
+def _note_stub(item: dict) -> Optional[dict]:
+    book = item.get("book") if isinstance(item.get("book"), dict) else {}
+    book_id = str(item.get("bookId") or book.get("bookId") or "").strip()
+    if not book_id:
+        return None
+    try:
+        ts = int(item.get("sort") or 0)
+    except (TypeError, ValueError):
+        ts = 0
+    return {
+        "id": book_id,
+        "title": book.get("title") or item.get("title") or "",
+        "cover": upgrade_cover_url(book.get("cover") or ""),
+        "author": book.get("author") or "",
+        "ts": ts,
+    }
+
+
+def _longest_stub(item: dict) -> Optional[dict]:
+    book = item.get("book") if isinstance(item.get("book"), dict) else {}
+    album = item.get("albumInfo") if isinstance(item.get("albumInfo"), dict) else {}
+    book_id = str(book.get("bookId") or album.get("albumId") or "").strip()
+    if not book_id:
+        return None
+    return {
+        "id": book_id,
+        "title": book.get("title") or album.get("name") or "",
+        "cover": upgrade_cover_url(book.get("cover") or album.get("cover") or ""),
+        "author": book.get("author") or album.get("authorName") or "",
+        "ts": 0,
+    }
+
+
+def books_beyond_shelf(on_shelf: set) -> list:
+    """Books WeRead can list that are not on the current shelf.
+
+    Documented sources only: /user/notebooks (every book with notes) and
+    /readdata/detail readLongest (top 10 overall and for recent years).
+    There is no API for the full 读过 / 读完 list.
+    """
+    if not load_api_key():
+        return []
+    on_shelf = {str(item) for item in (on_shelf or set())}
+    found: dict[str, dict] = {}
+
+    def add(stub: Optional[dict]) -> None:
+        if not stub:
+            return
+        book_id = str(stub.get("id") or "")
+        if not book_id or book_id in on_shelf or book_id in found:
+            return
+        found[book_id] = stub
+
+    last = None
+    for _ in range(40):
+        payload = {"api_name": "/user/notebooks", "count": 100}
+        if last is not None:
+            payload["lastSort"] = last
+        try:
+            page = call_agent(payload)
+        except Exception:
+            break
+        books = page.get("books") or []
+        for item in books:
+            if isinstance(item, dict):
+                add(_note_stub(item))
+        if not books or not int(page.get("hasMore") or 0):
+            break
+        sort = books[-1].get("sort") if isinstance(books[-1], dict) else None
+        if sort is None or sort == last:
+            break
+        last = sort
+
+    now = datetime.now(TZ)
+    queries = [("overall", 0)]
+    for year in range(now.year, now.year - 3, -1):
+        queries.append(("annually", int(datetime(year, 6, 1, tzinfo=TZ).timestamp())))
+    for mode, base in queries:
+        try:
+            data = call_agent({"api_name": "/readdata/detail", "mode": mode, "baseTime": base})
+        except Exception:
+            continue
+        for item in data.get("readLongest") or []:
+            if isinstance(item, dict):
+                add(_longest_stub(item))
+    return list(found.values())
 
 
 def shelf_books() -> list:

@@ -80,6 +80,7 @@ def settings_public() -> dict:
         "uiFont": store.ui_font(),
         "trackTitle": store.track_title(),
         "device": store.current_device(),
+        "imageSaveDir": store.image_save_dir(),
     }
 
 
@@ -340,7 +341,7 @@ def fetch_cover_bytes(url: str) -> tuple[bytes, str]:
             "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         },
     )
-    with urlopen(req, timeout=12) as resp:
+    with weread.open_url(req, timeout=12) as resp:
         body = resp.read()
         ctype = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0].strip()
     if not ctype.startswith("image/"):
@@ -445,6 +446,7 @@ class Handler(BaseHTTPRequestHandler):
                         "uiFont": store.ui_font(),
                         "trackTitle": store.track_title(),
                         "device": store.current_device(),
+                        "imageSaveDir": store.image_save_dir(),
                     }
                 )
             except Exception as exc:
@@ -665,7 +667,12 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/api/sync/ireader":
                 self._json(200, sync.sync_ireader())
                 return
+            if parsed.path == "/api/pick-folder":
+                self._json(200, pick_save_folder())
+                return
             if parsed.path == "/api/settings":
+                if "imageSaveDir" in body:
+                    store.set_image_save_dir(normalize_image_save_dir(body.get("imageSaveDir")))
                 if "minMinutes" in body:
                     store.set_min_minutes(int(body.get("minMinutes") or 3))
                 if "minBookTotalMinutes" in body:
@@ -925,6 +932,270 @@ def downloads_dir() -> Path:
     return Path.home() / "Downloads"
 
 
+def normalize_image_save_dir(value) -> str:
+    """Empty keeps the default Downloads folder. Otherwise store an absolute directory."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = Path.home() / path
+    try:
+        path = path.resolve()
+    except Exception as exc:
+        raise ValueError("无法使用保存路径") from exc
+    if path.exists() and not path.is_dir():
+        raise ValueError("保存路径不是文件夹")
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ValueError("无法创建保存路径") from exc
+    if not path.is_dir():
+        raise ValueError("保存路径不是文件夹")
+    return str(path)
+
+
+def image_save_folder() -> Path:
+    raw = store.image_save_dir()
+    if not raw:
+        path = downloads_dir()
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    return Path(normalize_image_save_dir(raw))
+
+
+def export_location_label(folder: Path) -> str:
+    try:
+        if folder.resolve() == downloads_dir().resolve():
+            return "下载"
+    except Exception:
+        pass
+    return str(folder)
+
+
+def pick_save_folder() -> dict:
+    """Native folder panel. Cancel is not an error."""
+    if sys.platform == "darwin":
+        return _pick_save_folder_macos()
+    if sys.platform == "win32":
+        return _pick_save_folder_windows()
+    return {"ok": False, "error": "当前系统无法打开文件夹选择"}
+
+
+def _pick_save_folder_macos() -> dict:
+    script = 'POSIX path of (choose folder with prompt "选择保存路径")'
+    try:
+        out = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "选择文件夹超时"}
+    except OSError as exc:
+        return {"ok": False, "error": str(exc) or "无法打开文件夹选择"}
+    if out.returncode != 0:
+        err = (out.stderr or "").strip()
+        if "User canceled" in err or "(-128)" in err:
+            return {"ok": False, "cancelled": True}
+        return {"ok": False, "error": err or "无法选择文件夹"}
+    path = (out.stdout or "").strip().rstrip("/")
+    if not path:
+        return {"ok": False, "cancelled": True}
+    return {"ok": True, "path": path}
+
+
+def _win_shuli_hwnd():
+    """HWND of the WebView window, so the folder dialog opens in front of it."""
+    import ctypes
+
+    user32 = ctypes.windll.user32
+    get_text = ctypes.WINFUNCTYPE(
+        ctypes.c_int, ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int
+    )(("GetWindowTextW", user32))
+    visible = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p)(("IsWindowVisible", user32))
+    found = ctypes.c_void_p()
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+    def visit(hwnd, _lparam):
+        if not visible(hwnd):
+            return True
+        buf = ctypes.create_unicode_buffer(32)
+        get_text(hwnd, buf, 32)
+        if buf.value == "书历":
+            found.value = hwnd
+            return False
+        return True
+
+    enum = ctypes.WINFUNCTYPE(
+        ctypes.c_bool,
+        ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p),
+        ctypes.c_void_p,
+    )(("EnumWindows", user32))
+    enum(visit, None)
+    return found.value or None
+
+
+def _win_folder_owner():
+    """Topmost popup in this process, so the dialog opens in front of WebView2."""
+    import ctypes
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+    create = ctypes.WINFUNCTYPE(
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_wchar_p,
+        ctypes.c_wchar_p,
+        ctypes.c_ulong,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+    )(("CreateWindowExW", user32))
+    module = ctypes.WINFUNCTYPE(ctypes.c_void_p, ctypes.c_wchar_p)(("GetModuleHandleW", kernel32))
+    foreground = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p)(("SetForegroundWindow", user32))
+    get_fg = ctypes.WINFUNCTYPE(ctypes.c_void_p)(("GetForegroundWindow", user32))
+    get_tid = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p, ctypes.c_void_p)(("GetWindowThreadProcessId", user32))
+    get_cur = ctypes.WINFUNCTYPE(ctypes.c_ulong)(("GetCurrentThreadId", kernel32))
+    attach = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_bool)(("AttachThreadInput", user32))
+    hwnd = create(
+        0x00000008 | 0x00000080,  # WS_EX_TOPMOST | WS_EX_TOOLWINDOW
+        "Static",
+        "选择保存路径",
+        0x80000000,  # WS_POPUP
+        0, 0, 0, 0,
+        None, None, module(None), None,
+    )
+    if not hwnd:
+        return None
+    fg = get_fg()
+    if fg:
+        fg_tid = get_tid(fg, None)
+        cur = get_cur()
+        if fg_tid and fg_tid != cur:
+            attach(cur, fg_tid, True)
+            foreground(hwnd)
+            attach(cur, fg_tid, False)
+        else:
+            foreground(hwnd)
+    return hwnd
+
+
+def _pick_save_folder_windows() -> dict:
+    """IFileDialog folder picker. The server is a hidden pythonw process."""
+    import ctypes
+    import uuid
+
+    ole32 = ctypes.windll.ole32
+    HR_CANCEL = 0x800704C7
+
+    class GUID(ctypes.Structure):
+        _fields_ = [
+            ("Data1", ctypes.c_ulong),
+            ("Data2", ctypes.c_ushort),
+            ("Data3", ctypes.c_ushort),
+            ("Data4", ctypes.c_ubyte * 8),
+        ]
+
+    def make_guid(text: str) -> GUID:
+        parsed = uuid.UUID(text)
+        item = GUID()
+        item.Data1 = parsed.time_low
+        item.Data2 = parsed.time_mid
+        item.Data3 = parsed.time_hi_version
+        for i, byte in enumerate(parsed.bytes[8:]):
+            item.Data4[i] = byte
+        return item
+
+    def com_call(this, index, restype, *argtypes):
+        proto = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)
+        vtbl = ctypes.cast(this, ctypes.POINTER(ctypes.c_void_p))[0]
+        addr = ctypes.cast(vtbl, ctypes.POINTER(ctypes.c_void_p))[index]
+        return proto(addr)
+
+    def failed(hr) -> bool:
+        return (int(hr) & 0xFFFFFFFF) >= 0x80000000
+
+    def cancelled(hr) -> bool:
+        return (int(hr) & 0xFFFFFFFF) == HR_CANCEL
+
+    co_init = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_ulong)(("CoInitializeEx", ole32))
+    co_create = ctypes.WINFUNCTYPE(
+        ctypes.c_long,
+        ctypes.POINTER(GUID),
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.POINTER(GUID),
+        ctypes.POINTER(ctypes.c_void_p),
+    )(("CoCreateInstance", ole32))
+    co_free = ctypes.WINFUNCTYPE(None, ctypes.c_void_p)(("CoTaskMemFree", ole32))
+    co_uninit = ctypes.WINFUNCTYPE(None)(("CoUninitialize", ole32))
+
+    hr_init = co_init(None, 2)  # COINIT_APARTMENTTHREADED
+    # S_FALSE (1) means this thread was already initialized.
+    if failed(hr_init) and (int(hr_init) & 0xFFFFFFFF) != 0x80010106:
+        return {"ok": False, "error": "无法打开文件夹选择"}
+    dialog = ctypes.c_void_p()
+    item = ctypes.c_void_p()
+    popup = None
+    destroy_popup = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p)(("DestroyWindow", ctypes.windll.user32))
+    try:
+        clsid = make_guid("DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7")
+        iid = make_guid("D57C7288-D4AD-4768-BE02-9D969532D960")
+        created = co_create(ctypes.byref(clsid), None, 1, ctypes.byref(iid), ctypes.byref(dialog))
+        if failed(created) or not dialog.value:
+            return {"ok": False, "error": "无法打开文件夹选择"}
+        opts = ctypes.c_ulong()
+        if not failed(com_call(dialog, 10, ctypes.c_long, ctypes.POINTER(ctypes.c_ulong))(dialog, ctypes.byref(opts))):
+            # FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST
+            opts.value |= 0x20 | 0x40 | 0x800
+            com_call(dialog, 9, ctypes.c_long, ctypes.c_ulong)(dialog, opts.value)
+        com_call(dialog, 17, ctypes.c_long, ctypes.c_wchar_p)(dialog, "选择保存路径")
+        popup = _win_folder_owner()
+        owner = popup or _win_shuli_hwnd()
+        shown = com_call(dialog, 3, ctypes.c_long, ctypes.c_void_p)(dialog, owner)
+        if cancelled(shown):
+            return {"ok": False, "cancelled": True}
+        if failed(shown) and owner:
+            shown = com_call(dialog, 3, ctypes.c_long, ctypes.c_void_p)(dialog, None)
+        if cancelled(shown):
+            return {"ok": False, "cancelled": True}
+        if failed(shown):
+            return {"ok": False, "error": "无法打开文件夹选择"}
+        got = com_call(dialog, 20, ctypes.c_long, ctypes.POINTER(ctypes.c_void_p))(dialog, ctypes.byref(item))
+        if failed(got) or not item.value:
+            return {"ok": False, "error": "无法选择文件夹"}
+        name = ctypes.c_void_p()
+        named = com_call(item, 5, ctypes.c_long, ctypes.c_ulong, ctypes.POINTER(ctypes.c_void_p))(
+            item, 0x80058000, ctypes.byref(name)
+        )
+        if failed(named) or not name.value:
+            return {"ok": False, "error": "无法选择文件夹"}
+        try:
+            path = ctypes.wstring_at(name.value).strip()
+        finally:
+            co_free(name)
+        if not path:
+            return {"ok": False, "cancelled": True}
+        return {"ok": True, "path": path}
+    except Exception:
+        return {"ok": False, "error": "无法打开文件夹选择"}
+    finally:
+        if item.value:
+            com_call(item, 2, ctypes.c_ulong)(item)
+        if dialog.value:
+            com_call(dialog, 2, ctypes.c_ulong)(dialog)
+        if popup:
+            destroy_popup(popup)
+            shuli = _win_shuli_hwnd()
+            if shuli:
+                ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p)(
+                    ("SetForegroundWindow", ctypes.windll.user32)
+                )(shuli)
+        if not failed(hr_init):
+            co_uninit()
+
+
 def unique_export_path(directory: Path, name: str) -> Path:
     dest = directory / name
     if not dest.exists():
@@ -970,11 +1241,17 @@ def _decode_png_b64(png_b64: str, max_bytes: int) -> bytes:
 
 def save_export_png(filename: str, png_b64: str) -> dict:
     data = _decode_png_b64(png_b64, MAX_EXPORT_PNG)
-    folder = downloads_dir()
+    folder = image_save_folder()
     folder.mkdir(parents=True, exist_ok=True)
     dest = unique_export_path(folder, sanitize_export_name(filename))
     dest.write_bytes(data)
-    return {"ok": True, "path": str(dest), "filename": dest.name, "bytes": len(data)}
+    return {
+        "ok": True,
+        "path": str(dest),
+        "filename": dest.name,
+        "bytes": len(data),
+        "locationLabel": export_location_label(folder),
+    }
 
 
 def log_wallpaper_progress(step: str) -> None:

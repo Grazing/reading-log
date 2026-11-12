@@ -17,6 +17,21 @@ def _raw_id(book: dict) -> str:
     return str(book.get("id") or "")
 
 
+def _local_off_shelf(on_shelf: set) -> list:
+    """WeRead ids already stored locally but absent from the current shelf."""
+    on_shelf = {str(item) for item in (on_shelf or set())}
+    with store.connect() as conn:
+        rows = conn.execute("SELECT id, title FROM books WHERE id LIKE 'weread:%'").fetchall()
+    out = []
+    for row in rows:
+        book_id = str(row["id"] or "")
+        raw_id = book_id.split(":", 1)[1].strip() if ":" in book_id else ""
+        if not raw_id or raw_id in on_shelf:
+            continue
+        out.append({"id": raw_id, "title": row["title"] or "", "ts": 0})
+    return out
+
+
 def _book_daily_snapshot(raw_id: str, last_open: int = 0) -> tuple[dict[str, int], str]:
     """Fetch {day: seconds} and a finish date. Prefer readDetail, else fallback.
 
@@ -213,7 +228,23 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
     merge_aliases = store.merge_alias_ids()
     merge_canonicals = set(store.book_merges().keys())
 
-    candidates = [b for b in shelf if _raw_id(b)][:50]
+    # Whole shelf, newest first. Aliases and hidden books are skipped below.
+    on_shelf = [b for b in shelf if _raw_id(b)]
+    on_ids = {_raw_id(b) for b in on_shelf}
+    seen = set(on_ids)
+    off_shelf = []
+    for stub in list(weread.books_beyond_shelf(on_ids)) + _local_off_shelf(on_ids):
+        raw_id = _raw_id(stub)
+        book_id = "weread:" + raw_id
+        if not raw_id or raw_id in seen:
+            continue
+        if book_id in merge_aliases or store.is_excluded_book(book_id):
+            continue
+        if store.preserves_synced_days(book_id):
+            continue
+        seen.add(raw_id)
+        off_shelf.append(stub)
+    candidates = on_shelf + off_shelf
     used = 0
     entries = 0
     errors = 0
@@ -222,7 +253,10 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
         raw_id = _raw_id(book)
         book_id = "weread:" + raw_id
         # Aliases are folded into the canonical book later; skip their own rows.
+        # Protected books are skipped entirely, on or off the shelf.
         if book_id in merge_aliases or store.is_excluded_book(book_id):
+            continue
+        if store.preserves_synced_days(book_id):
             continue
         meta = {
             "cover": book.get("cover") or "",
@@ -350,6 +384,8 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
         "mergedEntries": merged_entries,
         "skipped": errors,
         "candidates": len(candidates),
+        "onShelf": len(on_shelf),
+        "offShelf": len(off_shelf),
     }
     if expired and used == 0:
         result["ok"] = False

@@ -200,6 +200,16 @@
     button:hover { background: var(--out); }
     button.primary { background: var(--week); color: var(--on-accent); border-color: var(--week); }
     button.primary:hover { background: var(--primary-hover); }
+    /* Resting sync actions: same stroke as pressed 按月 (.books-tools .books-seg > button.on). */
+    #syncAllBtn,
+    #syncRecentBtn {
+      background: var(--week);
+      color: var(--on-accent);
+      border-color: var(--line);
+      box-shadow: inset 0 0 0 1px var(--paper);
+    }
+    #syncAllBtn:hover,
+    #syncRecentBtn:hover { background: var(--primary-hover); }
     .cal-tools {
       display: flex;
       flex-direction: column;
@@ -539,6 +549,33 @@
     body.mode-books .books-port {
       display: block;
     }
+    /* Card / ticket only: always-visible bar on the scrolling canvas's right edge.
+       Thumb color is painted from that mode's 按月 text. Hidden when nothing overflows. */
+    .books-scrollbar {
+      display: none;
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 10px;
+      z-index: 6;
+      box-sizing: border-box;
+    }
+    .books-scrollbar.is-on { display: block; }
+    .books-scrollbar-track {
+      position: absolute;
+      inset: 0;
+      background: var(--line);
+    }
+    .books-scrollbar-thumb {
+      position: absolute;
+      left: 1px;
+      width: 8px;
+      border-radius: 4px;
+      cursor: grab;
+      touch-action: none;
+    }
+    .books-scrollbar-thumb:active { cursor: grabbing; }
     /* Same as track: pan+zoom via transform on the wrapper (no CSS zoom redraw). */
     .books-pan {
       position: absolute;
@@ -3520,15 +3557,46 @@
       display: flex;
       flex-direction: column;
       width: min(680px, 100%);
+      /* Definite height so the record list can shrink into the pane.
+         max-height alone left the flex height indefinite and the list at 0
+         once 合并 and the forms used the whole pane.
+         overflow hidden matches .stats-sheet: the close bar stays put. */
+      height: calc(100vh - 36px);
+      height: calc(100dvh - 36px);
       max-height: calc(100vh - 36px);
+      max-height: calc(100dvh - 36px);
       min-height: 0;
       overflow: hidden;
     }
-    .log-sheet > :not(.log-list) { flex-shrink: 0; }
+    .log-sheet-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .log-sheet-body > :not(.log-list) { flex-shrink: 0; }
+    /* Same dock as .stats-foot: centered, top rule, outside the scroller. */
+    .log-foot {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      position: relative;
+      z-index: 2;
+      background: #fff;
+    }
     .log-hint { margin-top: 0; }
     .log-list {
       flex: 1 1 auto;
-      min-height: 0;
+      /* Floor: siblings are flex-shrink:0. Without this the list is crushed
+         to 0 and its scrollTop cannot move back to the records. */
+      min-height: min(200px, 32vh);
       overflow-x: hidden;
       overflow-y: auto;
       border: 1px solid var(--line);
@@ -3574,6 +3642,135 @@
     .log-dur { text-align: right; color: var(--date); }
     .log-head span:last-child { color: var(--muted); }
     .log-empty { padding: 16px 10px; color: var(--muted); font-size: 13px; }
+    .log-merge-line { flex-wrap: nowrap; }
+    .log-merge-line > span,
+    .log-merge-line > button { flex: 0 0 auto; }
+    .log-merge-line > select {
+      flex: 1 1 0;
+      width: 0;
+      min-width: 0;
+    }
+    .log-merge-note {
+      margin: 0 0 8px;
+      min-height: 1.2em;
+      color: var(--date);
+      font-size: 13px;
+    }
+    /* Same capsule as .books-slot-pill（在读|全部|读完）. Sits above the preview only. */
+    .log-merge-modes.books-slot-pill {
+      display: flex;
+      justify-content: center;
+      width: fit-content;
+      margin: 0 auto 8px;
+      position: relative;
+      z-index: 2;
+      background: var(--paper);
+    }
+    .log-merge-modes.books-slot-pill button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--books-ink);
+      min-height: 0;
+      height: auto;
+      margin: 0;
+      padding: 0 13.23px;
+      font-size: 13.23px;
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: 0.04em;
+      box-shadow: none;
+      white-space: nowrap;
+    }
+    .log-merge-modes.books-slot-pill button:hover {
+      background: var(--btn);
+      color: var(--books-ink);
+    }
+    .log-merge-modes.books-slot-pill button.on {
+      background: var(--week);
+      color: var(--on-accent);
+      border-color: transparent;
+    }
+    .log-merge-modes.books-slot-pill button.on:hover {
+      background: var(--primary-hover);
+      color: var(--on-accent);
+    }
+    .log-merge-modes.books-slot-pill button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .log-merge-modes.books-slot-pill button:disabled:hover {
+      background: transparent;
+      color: var(--books-ink);
+    }
+    .log-merge-modes.books-slot-pill button.on:disabled,
+    .log-merge-modes.books-slot-pill button.on:disabled:hover {
+      background: var(--week);
+      color: var(--on-accent);
+    }
+    .log-merge-preview {
+      max-height: 280px;
+      overflow: auto;
+      scrollbar-gutter: stable;
+      margin: 0 0 12px;
+      background: var(--cell-out);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .log-merge-empty {
+      margin: 0;
+      padding: 18px 12px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    /* Card stays at the 卡片 design width (585). A narrower column zooms
+       .log-merge-scale; shrinking the card made the cover slot collapse to
+       min-width while its height still stretched, and object-fit:cover
+       cropped the cover's width. */
+    .log-merge-preview .log-merge-scale {
+      width: 585px;
+      margin: 8px auto 12px;
+    }
+    .log-merge-preview .book-item .book-card,
+    body.books-card-brief .log-merge-preview .book-item .book-card,
+    body.compact-ui .log-merge-preview .book-item .book-card {
+      width: 585px;
+      max-width: none;
+      margin: 0;
+      padding: 28px 2px 30px 26px;
+      box-sizing: border-box;
+    }
+    .log-merge-preview .book-card,
+    .log-merge-preview .book-card * { pointer-events: none; }
+    .log-merge-preview .book-detail.open { display: block; }
+    .log-merge-preview .book-card .book-row,
+    body.compact-ui .log-merge-preview .book-card .book-row,
+    body.books-card-brief .log-merge-preview .book-card .book-row { gap: 34px; }
+    .log-merge-preview .book-card .cover-slot,
+    body.books-card-brief .log-merge-preview .book-card .cover-slot,
+    body.compact-ui .log-merge-preview .book-card .cover-slot {
+      display: block !important;
+      flex: 0 0 auto;
+      align-self: flex-start;
+      margin-left: 17px;
+      aspect-ratio: 3 / 4;
+      min-width: 72px;
+      max-width: 160px;
+    }
+    body.books-card-brief .log-merge-preview .book-card .stats { display: grid !important; }
+    body.books-card-brief .log-merge-preview .book-card .stats-wrap { display: grid !important; }
+    body.books-card-brief .log-merge-preview .book-card .book-body,
+    body.compact-ui .log-merge-preview .book-card .book-body { margin-left: 0; }
+    body.books-card-brief .log-merge-preview .book-card .book-title,
+    body.compact-ui .log-merge-preview .book-card .book-title { font-size: 23px; }
+    body.books-card-brief .log-merge-preview .book-card .day-track,
+    body.compact-ui .log-merge-preview .book-card .day-track { height: 21px; }
+    body.books-card-brief .log-merge-preview .book-card .day-lab,
+    body.compact-ui .log-merge-preview .book-card .day-lab { font-size: 9.8px; left: 10px; }
     .stats-sheet {
       width: min(640px, 100%);
       height: calc(100vh - 36px);
@@ -3971,7 +4168,60 @@
     #logDate { width: 148px; }
     #logMinutes { width: 72px; }
     .log-book-create-row { margin-top: 10px; }
-    #logNewTitle { flex: 1 1 220px; min-width: 160px; }
+    /* Outer box matches #logCreateBook (13px / 6px pad / 1px border ≈ 32.5px). */
+    #logNewTitle {
+      flex: 1 1 220px;
+      min-width: 160px;
+      box-sizing: border-box;
+      height: 32.5px;
+      min-height: 32.5px;
+      max-height: 32.5px;
+      margin: 0;
+      padding: 0 12px;
+      font-size: 13px;
+      line-height: 30.5px;
+    }
+    /* Book-title menus in 记录 only. Native menulist ignores 999px and stays a
+       rounded rect; appearance:none lets the radius paint a pill at the 34px
+       of the neighboring .log-add-row buttons. Option popup stays native. */
+    #logPanel select#logBook,
+    #logPanel select#mergeFrom,
+    #logPanel select#mergeTo,
+    #logPanel select.log-edit-book {
+      -webkit-appearance: none;
+      appearance: none;
+      box-sizing: border-box;
+      height: 34px;
+      min-height: 34px;
+      max-height: 34px;
+      margin: 0;
+      padding: 0 28px 0 12px;
+      border-radius: 999px;
+      font-family: var(--ui-font);
+      font-size: 13px;
+      line-height: 32px;
+      color: var(--ink);
+      background-color: var(--paper);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23b5a596' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 10px 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .log-csv-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 18px 0 8px;
+    }
+    .log-csv-head h3 { margin: 0; }
+    #csvBox {
+      min-height: 63px; /* 90px × 0.7 */
+      height: 63px;
+    }
     .err {
       display: none;
       margin: 0 22px 8px;
@@ -5797,6 +6047,10 @@
     .ticket-stub.has-note .ticket-facts + .ticket-perf {
       margin-top: calc(6px + 20px / 9 + 2px);
     }
+    /* 读后记有内容且无个人评分：底部边距 +6px（20.22→26.22）。有评分、或没有读后记，保持原边距。 */
+    .ticket-stub.has-note.no-rating {
+      padding-bottom: calc(18px + 20px / 9 + 6px);
+    }
     .ticket-foot {
       display: flex;
       align-items: baseline;
@@ -6163,7 +6417,8 @@
       <div class="hint" id="status">正在读取本月记录…</div>
     </div>
     <div class="nav">
-      <button class="primary" id="syncBtn">同步</button>
+      <button id="syncAllBtn">同步全部</button>
+      <button id="syncRecentBtn">同步最近</button>
       <button id="gradeBtn" title="调整书条与书名颜色">调色</button>
       <button id="toneBtn" title="调整界面色调">色调</button>
       <button id="logBtn" title="每日每本书的阅读时长">记录</button>
@@ -6386,6 +6641,11 @@
     <div class="books-port" id="booksPort">
       <div class="books-pan" id="booksPan">
         <div id="bookView"></div>
+      </div>
+      <div class="books-scrollbar" id="booksScrollbar" aria-hidden="true">
+        <div class="books-scrollbar-track" id="booksScrollbarTrack">
+          <div class="books-scrollbar-thumb" id="booksScrollbarThumb"></div>
+        </div>
       </div>
     </div>
     <template id="monthTpl">
@@ -6769,7 +7029,7 @@
         <button type="button" class="primary" id="saveSettings">保存</button>
       </div>
       <div class="settings-meta">
-        <p>当前版本 0.3.2</p>
+        <p>当前版本 0.3.3</p>
         <p>问题反馈 <a href="mailto:896968759@qq.com">896968759@qq.com</a></p>
       </div>
       </div>
@@ -6778,6 +7038,7 @@
 
   <div class="overlay" id="logPanel">
     <div class="sheet log-sheet">
+      <div class="log-sheet-body">
       <h2>记录</h2>
       <p class="log-hint">点一行可改日期、书和时长，也可以删除。手动添加写进同一份记录；删掉的一天不会被下次同步补回来。</p>
       <div class="log-list" id="logList"></div>
@@ -6793,11 +7054,31 @@
         <input id="logNewTitle" type="text" placeholder="书名（非微信读书）" autocomplete="off" spellcheck="false" />
         <button type="button" id="logCreateBook">添加书</button>
       </div>
-      <h3>导入 CSV</h3>
+      <div class="log-csv-head">
+        <h3>导入 CSV</h3>
+        <button type="button" id="importCsv">导入记录</button>
+      </div>
       <p>CSV 表头：<code>日期,书名,分钟</code>，例如 <code>2026-09-01,三体,42</code>。</p>
       <textarea id="csvBox" placeholder="日期,书名,分钟"></textarea>
-      <div class="row"><button type="button" id="importCsv">导入记录</button></div>
-      <div class="row">
+      <div class="log-merge" id="logMerge">
+        <h3>合并</h3>
+        <div class="row log-add-row log-merge-line">
+          <span>将</span>
+          <select id="mergeFrom" aria-label="被合并的书"></select>
+          <span>合并至</span>
+          <select id="mergeTo" aria-label="合并目标"></select>
+          <button type="button" class="primary" id="mergeBooksBtn">合并</button>
+        </div>
+        <p class="log-merge-note" id="mergeNote"></p>
+        <div class="books-slot-pill log-merge-modes" id="mergePreviewModes" role="group" aria-label="合并预览">
+          <button type="button" data-merge-preview="from" aria-pressed="false">迁出</button>
+          <button type="button" data-merge-preview="to" aria-pressed="false">迁入</button>
+          <button type="button" class="on" data-merge-preview="merged" aria-pressed="true">合并</button>
+        </div>
+        <div class="log-merge-preview" id="mergePreview"></div>
+      </div>
+      </div>
+      <div class="row log-foot">
         <button type="button" id="closeLog">关闭</button>
       </div>
     </div>
@@ -7003,7 +7284,12 @@
     const BOOKS_FILTERS = ["reading", "all", "finished"];
     const BOOKS_CARD_DENSITIES = ["full", "brief"];
     function loadBooksChrome() {
-      let sort = "lastOpen", order = "desc", filter = "all";
+      // filter = 卡片; ticketFilter = 票根. Sort stays shared.
+      // orders[sortKey] remembers 升序/降序 per sort; order is the active one.
+      // Missing ticketFilter stays 全部 — do not copy the card choice.
+      // A sort with no stored direction copies the legacy single order (default 降序).
+      let sort = "lastOpen", order = "desc", filter = "all", ticketFilter = "all";
+      const orders = {};
       try {
         const raw = localStorage.getItem(BOOKS_CHROME_KEY);
         if (raw) {
@@ -7012,10 +7298,20 @@
             if (BOOKS_SORTS.indexOf(obj.sort) >= 0) sort = obj.sort;
             if (BOOKS_ORDERS.indexOf(obj.order) >= 0) order = obj.order;
             if (BOOKS_FILTERS.indexOf(obj.filter) >= 0) filter = obj.filter;
+            if (BOOKS_FILTERS.indexOf(obj.ticketFilter) >= 0) ticketFilter = obj.ticketFilter;
+            if (obj.orders && typeof obj.orders === "object") {
+              BOOKS_SORTS.forEach((key) => {
+                if (BOOKS_ORDERS.indexOf(obj.orders[key]) >= 0) orders[key] = obj.orders[key];
+              });
+            }
           }
         }
       } catch (e) {}
-      return { sort: sort, order: order, filter: filter };
+      BOOKS_SORTS.forEach((key) => {
+        if (BOOKS_ORDERS.indexOf(orders[key]) < 0) orders[key] = order;
+      });
+      if (BOOKS_ORDERS.indexOf(orders[sort]) >= 0) order = orders[sort];
+      return { sort: sort, order: order, orders: orders, filter: filter, ticketFilter: ticketFilter };
     }
     function loadBooksFlag(key) {
       try { return localStorage.getItem(key) === "1"; } catch (e) {}
@@ -7058,6 +7354,25 @@
     const bookDetailInflight = new Map();
     function persistBooksChrome() {
       try { localStorage.setItem(BOOKS_CHROME_KEY, JSON.stringify(booksChrome)); } catch (e) {}
+    }
+    /** Switch shared sort and restore that mode's last 升序/降序. */
+    function applyBooksSort(sort) {
+      if (BOOKS_SORTS.indexOf(sort) < 0 || booksChrome.sort === sort) return false;
+      booksChrome.sort = sort;
+      if (!booksChrome.orders) booksChrome.orders = {};
+      const remembered = booksChrome.orders[sort];
+      booksChrome.order = BOOKS_ORDERS.indexOf(remembered) >= 0 ? remembered : booksChrome.order;
+      if (BOOKS_ORDERS.indexOf(booksChrome.order) < 0) booksChrome.order = "desc";
+      booksChrome.orders[sort] = booksChrome.order;
+      return true;
+    }
+    /** Toggle 升序/降序 for the current sort only. */
+    function applyBooksOrder(order) {
+      if (BOOKS_ORDERS.indexOf(order) < 0 || booksChrome.order === order) return false;
+      if (!booksChrome.orders) booksChrome.orders = {};
+      booksChrome.orders[booksChrome.sort] = order;
+      booksChrome.order = order;
+      return true;
     }
     function hideChecksFor(book, opts) {
       const forTickets = !!(opts && opts.tickets);
@@ -11877,6 +12192,8 @@
     let booksContentH = 1;
     let booksPanX = 0;
     let booksPanY = 0;
+    let booksPanMinY = 0;
+    let booksPanMaxY = 0;
     let booksPanNeedsCenter = true;
     let booksPanAnchor = null;
     let booksPanPersistTimer = null;
@@ -12067,6 +12384,8 @@
       }
       booksPanX = Math.max(minX, Math.min(maxX, booksPanX));
       booksPanY = Math.max(minY, Math.min(maxY, booksPanY));
+      booksPanMinY = minY;
+      booksPanMaxY = maxY;
     }
     function measureTicketBlock(box) {
       const pan = box && box.parentElement && box.parentElement.id === "booksPan" ? box.parentElement : box;
@@ -12091,8 +12410,118 @@
       const h = Math.max(1, box.scrollHeight || 0, box.offsetHeight || 0);
       return { w: Math.max(1, Math.ceil(w)), h: Math.max(1, Math.ceil(h)) };
     }
+    function hideBooksScrollbar() {
+      const bar = document.getElementById("booksScrollbar");
+      if (!bar) return;
+      bar.classList.remove("is-on");
+      bar.setAttribute("aria-hidden", "true");
+    }
+    let booksScrollbarColorKey = "";
+    let booksScrollbarColor = "";
+    function booksScrollbarThumbColor() {
+      const id = viewMode === "tickets" ? "ticketsPeriodBtn" : "booksPeriodBtn";
+      const btn = document.getElementById(id);
+      if (!btn) return booksScrollbarColor || "";
+      if (booksScrollbarColorKey === id && booksScrollbarColor) return booksScrollbarColor;
+      const probe = btn.cloneNode(false);
+      probe.removeAttribute("id");
+      probe.classList.remove("on");
+      probe.textContent = "按月";
+      probe.style.position = "absolute";
+      probe.style.visibility = "hidden";
+      probe.style.pointerEvents = "none";
+      const parent = btn.parentElement || document.body;
+      parent.appendChild(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      booksScrollbarColorKey = id;
+      booksScrollbarColor = color || "";
+      return booksScrollbarColor;
+    }
+    function paintBooksScrollbar() {
+      const bar = document.getElementById("booksScrollbar");
+      const track = document.getElementById("booksScrollbarTrack");
+      const thumb = document.getElementById("booksScrollbarThumb");
+      if (!bar || !track || !thumb) return;
+      if (wallpaperMode || (viewMode !== "books" && viewMode !== "tickets")) {
+        hideBooksScrollbar();
+        return;
+      }
+      const port = document.getElementById("booksPort");
+      const span = booksPanMaxY - booksPanMinY;
+      // Track is display:none until shown, so measure the port, not the track.
+      const trackH = (port && port.clientHeight) || 0;
+      if (!(span > 1) || trackH < 8) {
+        hideBooksScrollbar();
+        return;
+      }
+      const viewH = trackH;
+      const ratio = viewH / (viewH + span);
+      const thumbH = Math.min(trackH, Math.max(24, Math.round(trackH * ratio)));
+      const maxTop = Math.max(0, trackH - thumbH);
+      const frac = Math.max(0, Math.min(1, (booksPanMaxY - booksPanY) / span));
+      thumb.style.height = thumbH + "px";
+      thumb.style.top = Math.round(frac * maxTop) + "px";
+      thumb.style.background = booksScrollbarThumbColor();
+      bar.classList.add("is-on");
+      bar.setAttribute("aria-hidden", "false");
+    }
+    function bindBooksScrollbar() {
+      const track = document.getElementById("booksScrollbarTrack");
+      const thumb = document.getElementById("booksScrollbarThumb");
+      if (!track || !thumb || track.dataset.bound === "1") return;
+      track.dataset.bound = "1";
+      function applyFrac(frac) {
+        const span = booksPanMaxY - booksPanMinY;
+        if (!(span > 1)) return;
+        const f = Math.max(0, Math.min(1, frac));
+        booksPanY = booksPanMaxY - f * span;
+        booksPanNeedsCenter = false;
+        booksPanAnchor = null;
+        layoutBooksViewScale();
+        if (viewMode === "books") persistBooksPan();
+        else if (viewMode === "tickets") persistTicketsPan();
+      }
+      thumb.addEventListener("pointerdown", (ev) => {
+        if (ev.button != null && ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const originTop = thumb.offsetTop;
+        const startY = ev.clientY;
+        try { thumb.setPointerCapture(ev.pointerId); } catch (e) {}
+        const move = (e) => {
+          const rect = track.getBoundingClientRect();
+          const thumbH = thumb.offsetHeight || 0;
+          const maxTop = Math.max(1, rect.height - thumbH);
+          const top = Math.max(0, Math.min(maxTop, originTop + (e.clientY - startY)));
+          applyFrac(top / maxTop);
+        };
+        const up = () => {
+          thumb.removeEventListener("pointermove", move);
+          thumb.removeEventListener("pointerup", up);
+          thumb.removeEventListener("pointercancel", up);
+        };
+        thumb.addEventListener("pointermove", move);
+        thumb.addEventListener("pointerup", up);
+        thumb.addEventListener("pointercancel", up);
+      });
+      track.addEventListener("pointerdown", (ev) => {
+        if (ev.target === thumb) return;
+        if (ev.button != null && ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const rect = track.getBoundingClientRect();
+        const thumbH = thumb.offsetHeight || 0;
+        const maxTop = Math.max(1, rect.height - thumbH);
+        const top = Math.max(0, Math.min(maxTop, (ev.clientY - rect.top) - thumbH / 2));
+        applyFrac(top / maxTop);
+      });
+    }
     function layoutBooksViewScale() {
-      if (wallpaperMode || (viewMode !== "books" && viewMode !== "tickets")) return;
+      if (wallpaperMode || (viewMode !== "books" && viewMode !== "tickets")) {
+        hideBooksScrollbar();
+        return;
+      }
       const port = document.getElementById("booksPort");
       const pan = document.getElementById("booksPan") || document.getElementById("bookView");
       const box = document.getElementById("bookView");
@@ -12100,6 +12529,7 @@
       const viewW = port.clientWidth;
       const viewH = port.clientHeight;
       if (viewW < 2 || viewH < 2) {
+        hideBooksScrollbar();
         scheduleBooksViewScale();
         return;
       }
@@ -12138,6 +12568,7 @@
       const contentH = measured.h;
       if (!(contentW > 4) || !(contentH > 4)) {
         pan.style.transform = prevTf || "";
+        hideBooksScrollbar();
         scheduleBooksViewScale();
         return;
       }
@@ -12183,8 +12614,9 @@
         if (block && block.h > 0) {
           ticketBlockFits = block.h * s <= viewH + 0.5;
           if (ticketBlockFits) {
-            // Center, then nudge 6px up. Scrolling lists stay pinned to the top.
-            booksPanY = viewH / 2 - block.cy * s - 6;
+            // Center, then nudge up. Non-scroll single ticket is 8px above center
+            // (was 6). Scrolling lists that still fit keep 6px; taller lists stay pinned.
+            booksPanY = viewH / 2 - block.cy * s - (ticketsScrollOn ? 6 : 8);
           } else if (centerPan) {
             booksPanY = 0;
           }
@@ -12204,7 +12636,9 @@
       }
       const anchor = booksPanContentAnchor();
       booksScrollY = Math.max(0, Math.floor(anchor.cy || 0));
+      paintBooksScrollbar();
     }
+    bindBooksScrollbar();
     function scheduleBooksViewScale() {
       clearTimeout(booksLayoutTimer);
       booksLayoutTimer = setTimeout(() => {
@@ -12309,6 +12743,7 @@
       document.getElementById("calTools").removeAttribute("style");
       document.body.classList.toggle("mode-books", viewMode === "books");
       document.body.classList.toggle("mode-tickets", viewMode === "tickets");
+      if (viewMode !== "books" && viewMode !== "tickets") hideBooksScrollbar();
       document.body.classList.toggle("mode-track", viewMode === "track");
       document.body.classList.toggle("mode-month", viewMode === "month");
       document.body.classList.toggle("mode-recent", viewMode === "recent");
@@ -12606,8 +13041,9 @@
         }
         if (!bookMatchesSearch(book, booksSearchQuery)) return false;
         const done = bookIsFinished(book);
-        if (booksChrome.filter === "reading") return !done;
-        if (booksChrome.filter === "finished") return done;
+        const statusFilter = forTickets ? booksChrome.ticketFilter : booksChrome.filter;
+        if (statusFilter === "reading") return !done;
+        if (statusFilter === "finished") return done;
         return true;
       });
       const dir = booksChrome.order === "asc" ? 1 : -1;
@@ -13881,14 +14317,15 @@
         });
       });
     }
-    function fillBookDetail(detail, book, payload) {
+    function fillBookDetail(detail, book, payload, opts) {
+      const bind = !opts || opts.bind !== false;
       const barRaw = cssColor(book.barColor || (payload && payload.barColor) || "#eac1b7");
       const titleRaw = cssColor(bookNameColor(book));
       const barColor = applyGradeToHex(barRaw);
       const titleColor = applyGradeToHex(titleRaw);
       if (!payload || !payload.months || !payload.months.length) {
-        detail.innerHTML = "<p class=\"hint\">还没有按日明细。</p>" + bookDetailAddBtnHtml(book);
-        bindBookDetailAdd(detail, book);
+        detail.innerHTML = "<p class=\"hint\">还没有按日明细。</p>" + (bind ? bookDetailAddBtnHtml(book) : "");
+        if (bind) bindBookDetailAdd(detail, book);
         return;
       }
       const months = payload.months.slice().sort(function (a, b) {
@@ -13928,9 +14365,11 @@
         }).join("");
         return '<div class="month-head" data-grade-raw="' + titleRaw + '" data-grade-kind="ink" style="color:' +
           titleColor + '">' + m.month + "月·" + durationLabel(m.seconds) + "</div>" + days;
-      }).join("") + bookDetailAddBtnHtml(book);
-      bindBookDetailAdd(detail, book);
-      bindBookDetailDayEdits(detail, book);
+      }).join("") + (bind ? bookDetailAddBtnHtml(book) : "");
+      if (bind) {
+        bindBookDetailAdd(detail, book);
+        bindBookDetailDayEdits(detail, book);
+      }
     }
     function paintDetailMonthHeads(detail, book) {
       if (!detail || !book) return;
@@ -16561,6 +17000,7 @@
     let lastWereadSyncAt = 0;
     let wereadSyncBusy = false;
     let wereadSyncQueued = false;
+    let wereadSyncQueuedScope = "full";
     let syncIntervalMinutes = 0;
     let syncIntervalTimer = null;
     let syncTimes = [];
@@ -16687,7 +17127,7 @@
       try {
         const st = await api("/api/login/status");
         if (!st || !st.loggedIn || wereadSyncBusy) return;
-        const result = await syncWeread();
+        const result = await syncWeread("auto");
         if (!syncResultOk(result)) return;
         await refresh(false);
       } catch (e) {
@@ -16716,14 +17156,14 @@
       ensureDailyWatcher();
     }
 
-    async function syncWeread() {
+    async function syncWeread(scope) {
       if (wereadSyncBusy) return { busy: true };
       wereadSyncBusy = true;
       try {
         const result = await api("/api/sync/weread", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ year: year, month: month })
+          body: JSON.stringify({ year: year, month: month, scope: scope || "auto" })
         });
         if (result && result.inProgress) return { busy: true, inProgress: true };
         if (result && result.ok === false) throw new Error(result.error || "同步失败");
@@ -16739,17 +17179,23 @@
     }
 
     function paintSyncBusyUi(busy) {
-      const btn = document.getElementById("syncBtn");
-      if (btn) {
+      [
+        ["syncAllBtn", "同步全部"],
+        ["syncRecentBtn", "同步最近"]
+      ].forEach((pair) => {
+        const btn = document.getElementById(pair[0]);
+        if (!btn) return;
         btn.disabled = !!busy;
-        btn.textContent = busy ? "同步中…" : "同步";
-      }
+        btn.textContent = busy ? "同步中…" : pair[1];
+      });
     }
 
-    /** Manual 同步: hit /api/sync/weread immediately (do not wait for view load / schedule). */
-    async function manualSync() {
+    /** Manual sync: full = 同步全部, recent = 同步最近. Does not wait for view load. */
+    async function manualSync(scope) {
+      const mode = scope === "recent" ? "recent" : "full";
       if (wereadSyncBusy) {
         wereadSyncQueued = true;
+        wereadSyncQueuedScope = mode;
         document.getElementById("status").textContent = "同步进行中，完成后将再同步一次…";
         paintSyncBusyUi(true);
         return;
@@ -16758,7 +17204,7 @@
       paintSyncBusyUi(true);
       document.getElementById("status").textContent = "正在同步微信读书…";
       try {
-        const result = await syncWeread();
+        const result = await syncWeread(mode);
         if (result && result.busy) {
           // Another request holds the server lock — do not tight-loop retry.
           document.getElementById("status").textContent = "同步进行中，请稍后再点";
@@ -16777,8 +17223,10 @@
       } finally {
         paintSyncBusyUi(false);
         if (wereadSyncQueued) {
+          const next = wereadSyncQueuedScope === "recent" ? "recent" : "full";
           wereadSyncQueued = false;
-          await manualSync();
+          wereadSyncQueuedScope = "full";
+          await manualSync(next);
         }
       }
     }
@@ -16803,7 +17251,7 @@
       if (doSync && st.weread && st.weread.loggedIn) {
         document.getElementById("status").textContent = "正在同步微信读书…";
         try {
-          const result = await syncWeread();
+          const result = await syncWeread("auto");
           if (syncResultOk(result)) synced = true;
         } catch (e) {
           showErr(e.message);
@@ -18674,7 +19122,7 @@
     }
     function previewGesturePort(target) {
       if (!target || !target.closest) return null;
-      if (target.closest(".cal-tools, .top, .tabs, .menu, .sheet, .books-tools, .tickets-tools, input, select, textarea, button, a, .overlay, #menu, #cardPopup")) {
+      if (target.closest(".cal-tools, .top, .tabs, .menu, .sheet, .books-tools, .tickets-tools, .books-scrollbar, input, select, textarea, button, a, .overlay, #menu, #cardPopup")) {
         return null;
       }
       if (viewMode === "books" || viewMode === "tickets") return target.closest("#booksPort");
@@ -19226,14 +19674,10 @@
       const order = btn.getAttribute("data-tickets-order");
       const filter = btn.getAttribute("data-tickets-filter");
       let changed = false;
-      if (sort && BOOKS_SORTS.indexOf(sort) >= 0 && booksChrome.sort !== sort) {
-        booksChrome.sort = sort; changed = true;
-      }
-      if (order && BOOKS_ORDERS.indexOf(order) >= 0 && booksChrome.order !== order) {
-        booksChrome.order = order; changed = true;
-      }
-      if (filter && BOOKS_FILTERS.indexOf(filter) >= 0 && booksChrome.filter !== filter) {
-        booksChrome.filter = filter; changed = true;
+      if (sort && applyBooksSort(sort)) changed = true;
+      if (order && applyBooksOrder(order)) changed = true;
+      if (filter && BOOKS_FILTERS.indexOf(filter) >= 0 && booksChrome.ticketFilter !== filter) {
+        booksChrome.ticketFilter = filter; changed = true;
       }
       if (!changed) return;
       persistBooksChrome();
@@ -19843,7 +20287,7 @@
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
       document.querySelectorAll("#ticketsTools [data-tickets-filter]").forEach((btn) => {
-        const on = btn.getAttribute("data-tickets-filter") === booksChrome.filter;
+        const on = btn.getAttribute("data-tickets-filter") === booksChrome.ticketFilter;
         btn.classList.toggle("on", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
@@ -20019,46 +20463,91 @@
       renderTickets();
       return true;
     }
-    /** Mask path notch center Y in viewBox units (original SVG ≈ 50.99). */
-    function ticketMaskUrlForNotchCenter(tc) {
-      const vbH = 72.87;
+    /**
+     * Ticket frame in design units (viewBox width fixed at 34.04).
+     * Box aspect sets viewBox height so X and Y share one scale: holes and
+     * corners stay the design size instead of stretching with 读后记.
+     * Top scallops and the straight sides above the mid notches stay put.
+     * Only the straight sides below the mid notches change length.
+     * Bottom scallops sit on the bottom edge (translate, no scale).
+     * `notchUnits` is the mid-notch center, aligned to 作者/译者.
+     * rasterW/rasterH make the export <img> raster 1:1 with the canvas.
+     */
+    function ticketFrameMaskSvg(notchUnits, boxW, boxH, rasterW, rasterH) {
+      const vbW = 34.04;
       const r = 1.46;
       const topRef = 1.24;
-      const bottomRef = 71.65;
-      let c = Number(tc);
+      const bottomInset = 1.22; // 72.87 - 71.65; scallops hang just past bottomRef
+      const minSide = 0.5;
+      let vbH = 72.87;
+      if (boxW > 1 && boxH > 1) vbH = boxH * vbW / boxW;
+      const minH = topRef + bottomInset + r * 2 + minSide * 2;
+      if (!Number.isFinite(vbH) || vbH < minH) vbH = 72.87;
+      vbH = Math.round(vbH * 1000) / 1000;
+      let c = Number(notchUnits);
       if (!Number.isFinite(c)) c = 50.99;
-      c = Math.max(r + topRef + 0.5, Math.min(vbH - r - (vbH - bottomRef) - 0.5, c));
-      const notchBottom = +(c + r).toFixed(2);
-      const sideTop = +(c - r - topRef).toFixed(2);
-      const sideBottom = +(bottomRef - notchBottom).toFixed(2);
+      const minC = r + topRef + minSide;
+      const maxC = vbH - bottomInset - r - minSide;
+      if (maxC > minC) c = Math.max(minC, Math.min(maxC, c));
+      else c = minC;
+      const n = (v) => String(Math.round(v * 1000) / 1000);
+      const notchBottom = c + r;
+      const sideTop = c - r - topRef;
+      const sideBottom = (vbH - bottomInset) - notchBottom;
       const d =
-        "M33.91," + notchBottom +
-        "c-.81,0-1.46-.65-1.46-1.46s.65-1.46,1.46-1.46h.13s0-" + sideTop + ",0-" + sideTop +
-        "c-.16,0-.32-.03-.47-.1-.15-.06-.29-.15-.41-.27-.23-.23-.36-.54-.36-.87h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S27.94.68,27.94,0h0s-2.39,0-2.39,0h0c0,.68-.55,1.24-1.24,1.24S23.07.68,23.07,0h0s-2.38,0-2.38,0h0c0,.68-.55,1.24-1.24,1.24S18.21.68,18.21,0h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S13.35.68,13.35,0h0s-2.39,0-2.39,0h0c0,.68-.55,1.24-1.24,1.24S8.48.68,8.48,0h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S3.63.68,3.63,0h0s-2.38,0-2.38,0h0c0,.33-.13.64-.37.87-.23.24-.54.37-.88.37v" + sideTop +
-        "c.81,0,1.46.65,1.46,1.46s-.65,1.46-1.46,1.46v" + sideBottom +
-        "c.32,0,.64.11.88.35.24.24.37.55.37.88h0s2.38,0,2.38,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.39,0,2.39,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.39,0,2.39,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.33.13-.64.36-.88.12-.11.26-.2.41-.27.15-.06.31-.08.47-.08v-" + sideBottom + "h-.13Z";
-      const svg =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34.04 72.87" preserveAspectRatio="none">' +
-        '<path fill="#fff" d="' + d + '"/></svg>';
+        "M33.91," + n(notchBottom) +
+        "c-.81,0-1.46-.65-1.46-1.46s.65-1.46,1.46-1.46h.13s0-" + n(sideTop) + ",0-" + n(sideTop) +
+        "c-.16,0-.32-.03-.47-.1-.15-.06-.29-.15-.41-.27-.23-.23-.36-.54-.36-.87h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S27.94.68,27.94,0h0s-2.39,0-2.39,0h0c0,.68-.55,1.24-1.24,1.24S23.07.68,23.07,0h0s-2.38,0-2.38,0h0c0,.68-.55,1.24-1.24,1.24S18.21.68,18.21,0h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S13.35.68,13.35,0h0s-2.39,0-2.39,0h0c0,.68-.55,1.24-1.24,1.24S8.48.68,8.48,0h0s-2.38,0-2.38,0h0c0,.68-.56,1.24-1.24,1.24S3.63.68,3.63,0h0s-2.38,0-2.38,0h0c0,.33-.13.64-.37.87-.23.24-.54.37-.88.37v" + n(sideTop) +
+        "c.81,0,1.46.65,1.46,1.46s-.65,1.46-1.46,1.46v" + n(sideBottom) +
+        "c.32,0,.64.11.88.35.24.24.37.55.37.88h0s2.38,0,2.38,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.39,0,2.39,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.68.56-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.39,0,2.39,0h0c0-.68.55-1.24,1.24-1.24s1.24.56,1.24,1.24h0s2.38,0,2.38,0h0c0-.33.13-.64.36-.88.12-.11.26-.2.41-.27.15-.06.31-.08.47-.08v-" + n(sideBottom) + "h-.13Z";
+      let size = "";
+      if (rasterW > 1 && rasterH > 1) {
+        size = ' width="' + Math.round(rasterW) + '" height="' + Math.round(rasterH) + '"';
+      }
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + vbW + " " + n(vbH) + '"' + size +
+        ' preserveAspectRatio="none"><path fill="#fff" d="' + d + '"/></svg>';
+    }
+    function ticketMaskUrlForNotchCenter(notchUnits, boxW, boxH) {
+      const svg = ticketFrameMaskSvg(notchUnits, boxW, boxH);
       return "url(\"data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) + "\")";
     }
-    /** Align mid-lower notches with the gap between 作者 and 译者|出版社. */
+    /** Mid-notch center in viewBox units (width-based scale), from the 作者/译者 gap. */
+    function ticketNotchUnits(stub) {
+      if (!stub) return null;
+      const sr = stub.getBoundingClientRect();
+      if (!(sr.width > 1) || !(sr.height > 1)) return null;
+      const author = stub.querySelector(".ticket-author");
+      const meta = stub.querySelector(".ticket-meta-line");
+      let notchPx = 50.99 * sr.width / 34.04;
+      if (author && meta) {
+        const ar = author.getBoundingClientRect();
+        const mr = meta.getBoundingClientRect();
+        const mid = (ar.bottom + mr.top) / 2 - sr.top;
+        if (Number.isFinite(mid)) notchPx = mid;
+      }
+      return notchPx * 34.04 / sr.width;
+    }
+    /** Align mid notches with the gap between 作者 and 译者|出版社. Holes stay fixed-size. */
     function syncTicketNotchMasks(root) {
       const scope = root || document.getElementById("bookView");
       if (!scope) return;
-      scope.querySelectorAll(".ticket-stub").forEach((stub) => {
-        const author = stub.querySelector(".ticket-author");
-        const meta = stub.querySelector(".ticket-meta-line");
-        if (!author || !meta) return;
+      const stubs = [];
+      if (scope.classList && scope.classList.contains("ticket-stub")) stubs.push(scope);
+      if (scope.querySelectorAll) {
+        scope.querySelectorAll(".ticket-stub").forEach((el) => {
+          if (stubs.indexOf(el) < 0) stubs.push(el);
+        });
+      }
+      stubs.forEach((stub) => {
+        if (!stub.__ticketMaskRo && typeof ResizeObserver !== "undefined") {
+          stub.__ticketMaskRo = new ResizeObserver(() => syncTicketNotchMasks(stub));
+          stub.__ticketMaskRo.observe(stub);
+        }
         const sr = stub.getBoundingClientRect();
-        const ar = author.getBoundingClientRect();
-        const mr = meta.getBoundingClientRect();
-        if (!(sr.height > 1)) return;
-        // Vertical center of the spacing between the two rows (mid-side notches).
-        const gapMid = (ar.bottom + mr.top) / 2;
-        const frac = (gapMid - sr.top) / sr.height;
-        const tc = frac * 72.87;
-        const url = ticketMaskUrlForNotchCenter(tc);
+        if (!(sr.width > 1) || !(sr.height > 1)) return;
+        const tc = ticketNotchUnits(stub);
+        if (tc == null) return;
+        const url = ticketMaskUrlForNotchCenter(tc, sr.width, sr.height);
         stub.style.webkitMaskImage = url;
         stub.style.maskImage = url;
         stub.style.webkitMaskSize = "100% 100%";
@@ -20302,6 +20791,7 @@
       item.insertBefore(hideChecksFor(book, { tickets: true }), item.firstChild);
       const stub = item.querySelector(".ticket-stub");
       if (stub && m.note) stub.classList.add("has-note");
+      if (stub && !(Number(m.rating) > 0)) stub.classList.add("no-rating");
       const check = item.querySelector(".ticket-check");
       if (check) {
         check.addEventListener("click", (ev) => ev.stopPropagation());
@@ -20436,6 +20926,7 @@
           const cur = ticketRating(book);
           if (cur === next) next = Math.max(0, next - 0.5);
           patchTicketBook(book.id, { rating: next });
+          stub.classList.toggle("no-rating", !(next > 0));
           const row = stub.querySelector('.ticket-rating-row[data-field="rating"]');
           if (row) {
             row.innerHTML = '<span class="ticket-lab">个人评分:</span>' + starsHtml(next);
@@ -20996,6 +21487,14 @@
       copyProps(liveStub.querySelector(".ticket-meta-line"), targetStub.querySelector(".ticket-meta-line"), [
         "marginTop", "marginRight", "marginBottom", "marginLeft"
       ]);
+      // Export only: 译者 and everything below it drop another 2px.
+      // The 书名 divider does not get this 2px (it is the title spacer),
+      // so the gap from that line to 译者 grows by 2px.
+      const destMeta = targetStub.querySelector(".ticket-meta-line");
+      if (destMeta) {
+        const metaTop = parseFloat(destMeta.style.marginTop);
+        destMeta.style.marginTop = ((Number.isFinite(metaTop) ? metaTop : 0) + 2) + "px";
+      }
       const liveFacts = liveStub.querySelector(".ticket-facts");
       const destFacts = targetStub.querySelector(".ticket-facts");
       copyProps(liveFacts, destFacts, [
@@ -21127,6 +21626,14 @@
       const perfs = targetStub.querySelectorAll(".ticket-perf");
       nudge(perfs[perfs.length - 1]);
       nudge(targetStub.querySelector(".ticket-foot"));
+      // 无评分且有读后记：读后记再下移 4px，到底部分割线的间隙少 4px。
+      // 分割线和 TheBook 不再跟着。有评分、或没有读后记，上面已 return。
+      nudge(note);
+      // 同一条件再上移 4px：读后记，以及下面的分割线 / TheBook / 底孔。
+      // 分割线和 TheBook、底孔的上移在 bake 里把最后一条线的上间距减 4px。
+      // 有评分走不到这里。上面的下移都保留。
+      const lifted = parseFloat(note.style.top);
+      note.style.top = ((Number.isFinite(lifted) ? lifted : 0) - 4) + "px";
     }
     function bakeTicketExportPerfMargins(liveStub, targetStub) {
       const livePerfs = liveStub.querySelectorAll(".ticket-perf");
@@ -21171,6 +21678,28 @@
             gapTop = midGap;
             gapBot = midGap;
           }
+        }
+        // Export only — preview never bakes these spacers.
+        // i===1 is the 译者 divider: extra 4px above the dash drops that line
+        // and everything through the divider above TheBook (this spacer's
+        // extra height pushes the following block). TheBook is not in the 4px.
+        // i===2 gap below the dash shrinks 2px so TheBook nets +2, and the
+        // stub grows only 2px. Bottom holes sit on that edge and translate;
+        // hole radius is unchanged in ticketFrameMaskSvg.
+        if (i === 1) gapTop += 4;
+        if (i === 2) gapBot -= 2;
+        // More export-only deltas on top of the shifts above. Preview never bakes.
+        // i===0: 书名下分割线 and everything below +2. 译者's extra +2 is the
+        // meta margin above, so 译者 and below are +4 while this dash is +2.
+        // No rating and no note: TheBook divider plus TheBook and bottom holes +3.
+        // Note without rating: that divider (and the foot under it) −4. The note
+        // itself is lifted in applyTicketExportUnratedNoteDrop. Holes follow height.
+        if (i === 0) gapTop += 2;
+        if (i === 2) {
+          const exportHasNote = !!targetStub.querySelector(".ticket-note-row");
+          const exportHasRating = !!targetStub.querySelector(".ticket-rating-row");
+          if (!exportHasNote && !exportHasRating) gapTop += 3;
+          if (exportHasNote && !exportHasRating) gapTop -= 4;
         }
         const lineW = Math.max(parseFloat(liveCs.borderTopWidth) || 0, 1.2);
         const lineStyle = liveCs.borderTopStyle || "dashed";
@@ -21437,8 +21966,6 @@
       host.appendChild(clone);
       document.body.appendChild(host);
       try {
-        const maskCss = stub.style.maskImage || stub.style.webkitMaskImage || "";
-        const maskUrl = extractCssUrl(maskCss) || "/ticket-stub-mask.svg";
         await waitForImages(host);
         await waitPaint(1);
         // Resolve calc / sibling gaps to px before measuring + before iframe clone.
@@ -21446,6 +21973,11 @@
         await waitPaint(1);
         const w = Math.max(clone.scrollWidth, clone.offsetWidth, 265);
         const h = Math.max(clone.scrollHeight, clone.offsetHeight, 1);
+        // Same frame rule as the screen mask: holes stay design-size, lower sides
+        // take this export box's height, mid notch stays on the clone's 作者/译者.
+        const notchUnits = ticketNotchUnits(clone);
+        const liveUnits = ticketNotchUnits(stub);
+        const units = notchUnits != null ? notchUnits : (liveUnits != null ? liveUnits : 50.99);
         const raw = await withLiveToneFiltersCleared(() => html2canvas(clone, {
           backgroundColor: stubBg,
           scale: scale,
@@ -21471,6 +22003,8 @@
             bakeTicketExportSpacing(stub, el);
           }
         }));
+        const maskSvg = ticketFrameMaskSvg(units, raw.width, raw.height, raw.width, raw.height);
+        const maskUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(maskSvg);
         return await applyTicketMaskToCanvas(raw, maskUrl, stubBg);
       } finally {
         if (host.parentNode) host.parentNode.removeChild(host);
@@ -21518,7 +22052,7 @@
       if (document.fonts && document.fonts.ready) {
         try { await document.fonts.ready; } catch (e) {}
       }
-      // Refresh notch masks on live stubs before reading mask URLs.
+      // Refresh live frames so a taller 读后记 has already lengthened only the lower sides.
       syncTicketNotchMasks(document.getElementById("bookView"));
       // Outer pad ×10 vs prior defaults (12 / 8). Transparent single export uses a lighter pad.
       const basePad = opts.pad != null
@@ -21779,8 +22313,11 @@
       document.getElementById("status").textContent = loginLine(st.weread);
     }
 
-    document.getElementById("syncBtn").onclick = () => {
-      manualSync().catch((e) => showErr(e.message));
+    document.getElementById("syncAllBtn").onclick = () => {
+      manualSync("full").catch((e) => showErr(e.message));
+    };
+    document.getElementById("syncRecentBtn").onclick = () => {
+      manualSync("recent").catch((e) => showErr(e.message));
     };
     document.getElementById("tabMonth").onclick = () => {
       // From books/tickets → restore last 月历 kind; if already on 日志, leave track to 月历.
@@ -21807,14 +22344,8 @@
       const order = btn.getAttribute("data-books-order");
       const filter = btn.getAttribute("data-books-filter");
       let changed = false;
-      if (sort && BOOKS_SORTS.indexOf(sort) >= 0 && booksChrome.sort !== sort) {
-        booksChrome.sort = sort;
-        changed = true;
-      }
-      if (order && BOOKS_ORDERS.indexOf(order) >= 0 && booksChrome.order !== order) {
-        booksChrome.order = order;
-        changed = true;
-      }
+      if (sort && applyBooksSort(sort)) changed = true;
+      if (order && applyBooksOrder(order)) changed = true;
       if (filter && BOOKS_FILTERS.indexOf(filter) >= 0 && booksChrome.filter !== filter) {
         booksChrome.filter = filter;
         changed = true;
@@ -21837,6 +22368,7 @@
       document.getElementById("settings").classList.remove("open");
     }
     function closeLogPanel() {
+      persistMergeChoice();
       readingLogEditing = null;
       document.getElementById("logPanel").classList.remove("open");
     }
@@ -22457,6 +22989,364 @@
       } else {
         list.scrollTop = prev;
       }
+      paintMergeControls();
+    }
+    function mergeCandidateBooks() {
+      return (readingLog.books || []).filter((book) => {
+        if (!book || !book.id) return false;
+        return book.showCal !== false || book.showCard !== false || book.showTicket !== false;
+      });
+    }
+    function mergeOptionHtml(books, selectedId) {
+      const want = selectedId == null || selectedId === "" ? "" : String(selectedId);
+      const blank = want === "" ? '<option value="" selected></option>' : "";
+      return blank + books.map((b) => (
+        '<option value="' + escapeHtml(b.id) + '"' + (String(b.id) === want ? " selected" : "") + ">" +
+        escapeHtml(b.title || "未命名") + "</option>"
+      )).join("");
+    }
+    const MERGE_CHOICE_KEY = "readingLogMergeChoice";
+    function loadMergeChoice() {
+      try {
+        const raw = localStorage.getItem(MERGE_CHOICE_KEY);
+        if (!raw) return { from: "", to: "" };
+        const obj = JSON.parse(raw);
+        if (!obj || typeof obj !== "object") return { from: "", to: "" };
+        return {
+          from: obj.from == null ? "" : String(obj.from),
+          to: obj.to == null ? "" : String(obj.to)
+        };
+      } catch (e) {
+        return { from: "", to: "" };
+      }
+    }
+    function persistMergeChoice() {
+      const fromSel = document.getElementById("mergeFrom");
+      const toSel = document.getElementById("mergeTo");
+      if (!fromSel || !toSel || fromSel.disabled || toSel.disabled) return;
+      let zoom;
+      try {
+        const prev = JSON.parse(localStorage.getItem(MERGE_CHOICE_KEY) || "null");
+        if (prev && typeof prev === "object" && prev.zoom != null && prev.zoom !== "") zoom = prev.zoom;
+      } catch (e) {}
+      const next = {
+        from: String(fromSel.value || ""),
+        to: String(toSel.value || "")
+      };
+      if (zoom != null) next.zoom = zoom;
+      try { localStorage.setItem(MERGE_CHOICE_KEY, JSON.stringify(next)); } catch (e) {}
+    }
+    const MERGE_ZOOM_MIN = 50;
+    const MERGE_ZOOM_MAX = 200;
+    const MERGE_ZOOM_STEP = 10;
+    function clampMergeZoom(n) {
+      n = Number(n);
+      if (!Number.isFinite(n)) return 100;
+      n = Math.round(n / MERGE_ZOOM_STEP) * MERGE_ZOOM_STEP;
+      if (n < MERGE_ZOOM_MIN) return MERGE_ZOOM_MIN;
+      if (n > MERGE_ZOOM_MAX) return MERGE_ZOOM_MAX;
+      return n;
+    }
+    function loadMergeZoom() {
+      try {
+        const raw = localStorage.getItem(MERGE_CHOICE_KEY);
+        if (!raw) return 100;
+        const obj = JSON.parse(raw);
+        if (!obj || typeof obj !== "object" || obj.zoom == null || obj.zoom === "") return 100;
+        return clampMergeZoom(obj.zoom);
+      } catch (e) {
+        return 100;
+      }
+    }
+    function persistMergeZoom(pct) {
+      let obj = {};
+      try {
+        const prev = JSON.parse(localStorage.getItem(MERGE_CHOICE_KEY) || "null");
+        if (prev && typeof prev === "object") obj = prev;
+      } catch (e) {}
+      obj.zoom = clampMergeZoom(pct);
+      try { localStorage.setItem(MERGE_CHOICE_KEY, JSON.stringify(obj)); } catch (e) {}
+    }
+    /** keep: a previous choice exists. id "" means that book is gone — do not substitute. */
+    function mergeSidePick(books, current, saved) {
+      const cur = current ? String(current) : "";
+      const mem = saved ? String(saved) : "";
+      const hit = (id) => books.some((b) => String(b.id) === id);
+      if (cur && hit(cur)) return { id: cur, keep: true };
+      if (!cur && mem && hit(mem)) return { id: mem, keep: true };
+      if (cur || mem) return { id: "", keep: true };
+      return { id: "", keep: false };
+    }
+    let mergePreviewGen = 0;
+    let mergePreviewMode = "merged";
+    let mergePreviewZoomPct = loadMergeZoom();
+    let mergePreviewZoomWheel = 0;
+    const MERGE_PREVIEW_CARD_W = 585;
+    function mergePreviewSelection() {
+      const fromSel = document.getElementById("mergeFrom");
+      const toSel = document.getElementById("mergeTo");
+      const fromId = fromSel && !fromSel.disabled ? String(fromSel.value || "") : "";
+      const toId = toSel && !toSel.disabled ? String(toSel.value || "") : "";
+      return {
+        fromId: fromId,
+        toId: toId,
+        same: !!(fromId && toId && fromId === toId),
+        ready: !!(fromId && toId && fromId !== toId)
+      };
+    }
+    function syncMergePreviewModes() {
+      const sel = mergePreviewSelection();
+      const root = document.getElementById("mergePreviewModes");
+      if (!root) return;
+      root.querySelectorAll("button[data-merge-preview]").forEach((btn) => {
+        const mode = btn.getAttribute("data-merge-preview");
+        const on = mode === mergePreviewMode;
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        if (mode === "from") btn.disabled = !sel.fromId;
+        else if (mode === "to") btn.disabled = !sel.toId;
+        else btn.disabled = !sel.ready;
+      });
+    }
+    function renderMergePreviewHint(text) {
+      const host = document.getElementById("mergePreview");
+      if (!host) return;
+      host.innerHTML = '<p class="log-merge-empty">' + escapeHtml(text) + "</p>";
+    }
+    function sizeMergePreviewCover(card) {
+      const body = card.querySelector(".book-body");
+      const slot = card.querySelector(".cover-slot");
+      if (!body || !slot) return;
+      slot.style.width = "";
+      slot.style.flexBasis = "";
+      slot.style.height = "";
+      slot.style.alignSelf = "flex-start";
+      slot.style.marginTop = "";
+      slot.style.maxWidth = "160px";
+      slot.style.minWidth = "72px";
+      const rawH = Math.round(body.scrollHeight || body.getBoundingClientRect().height);
+      if (rawH < 8) return;
+      const h = Math.max(8, Math.round(rawH * 0.96) + 1);
+      const w = Math.max(72, Math.min(160, Math.round(h * 3 / 4)));
+      slot.style.width = w + "px";
+      slot.style.flexBasis = w + "px";
+      slot.style.height = h + "px";
+      slot.style.alignSelf = "flex-start";
+      slot.style.marginTop = "3px";
+    }
+    function fitMergePreviewScale(host) {
+      const frame = host && host.querySelector(".log-merge-scale");
+      if (!frame) return;
+      const avail = host.clientWidth;
+      if (!avail) return;
+      let fit = Math.min(1, avail / MERGE_PREVIEW_CARD_W);
+      frame.style.zoom = String(Math.round(fit * 1000) / 1000);
+      const visual = frame.getBoundingClientRect().width;
+      if (visual > host.clientWidth + 1) {
+        fit = Math.min(1, host.clientWidth / MERGE_PREVIEW_CARD_W);
+      }
+      const zoom = fit * (mergePreviewZoomPct / 100);
+      frame.style.zoom = String(Math.round(zoom * 1000) / 1000);
+    }
+    function layoutMergePreview(host) {
+      const card = host && host.querySelector(".book-card");
+      const frame = host && host.querySelector(".log-merge-scale");
+      if (!card || !frame) return;
+      const prev = frame.style.zoom || "1";
+      frame.style.zoom = "1";
+      sizeMergePreviewCover(card);
+      frame.style.zoom = prev;
+      fitMergePreviewScale(host);
+    }
+    let mergePreviewResizeObs = null;
+    function watchMergePreviewSize(host) {
+      if (!host || typeof ResizeObserver === "undefined") return;
+      if (!mergePreviewResizeObs) {
+        mergePreviewResizeObs = new ResizeObserver(() => {
+          const el = document.getElementById("mergePreview");
+          if (el && el.querySelector(".log-merge-scale")) fitMergePreviewScale(el);
+        });
+      }
+      mergePreviewResizeObs.disconnect();
+      mergePreviewResizeObs.observe(host);
+    }
+    function renderMergePreviewCard(payload) {
+      const host = document.getElementById("mergePreview");
+      if (!host) return;
+      const book = payload && payload.book;
+      if (!book) {
+        host.innerHTML = "";
+        return;
+      }
+      const progress = (book.progress == null || book.progress === "") ? "—" : (Number(book.progress) + "%");
+      const author = authorLabel(book.author);
+      const finishHtml = finishDateHtml(book);
+      const finishClass = finishClassName(book);
+      host.innerHTML =
+        '<div class="log-merge-scale"><div class="book-item"><div class="book-card">' +
+        '<div class="book-card-strip"></div>' +
+        '<div class="book-row">' + coverSlotHtml(book) +
+        '<div class="book-body"><div class="book-title">' + escapeHtml(book.title || "") + "</div>" +
+        '<div class="book-author-wrap"><div class="book-author-row">' +
+        '<div class="book-author">' + (author ? escapeHtml(author) : "") + "</div>" +
+        '<div class="' + finishClass + '">' + finishHtml + "</div>" +
+        "</div></div>" +
+        '<div class="stats-wrap"><div class="stats">' +
+        '<div class="stat stat-progress"><div class="stat-val">' + progress +
+        '</div><div class="stat-lab">阅读进度</div></div>' +
+        '<div class="stat stat-words"><div class="stat-val">' + wordsLabel(book.wordCount) +
+        '</div><div class="stat-lab">书籍字数</div></div>' +
+        '<div class="stat"><div class="stat-val">' + durationHtml(book.seconds) +
+        '</div><div class="stat-lab">累计时长</div></div>' +
+        readDaysStatHtml(book) +
+        '</div><button class="arrow open" type="button" tabindex="-1" aria-hidden="true">›</button></div></div></div>' +
+        '<div class="book-detail open"></div></div></div></div>';
+      const card = host.querySelector(".book-card");
+      setGradeFill(card.querySelector(".book-card-strip"), book.barColor || "#eac1b7");
+      setGradeInk(card.querySelector(".arrow"), book.barColor || "#b5a596");
+      setGradeInk(card.querySelector(".book-title"), bookNameColor(book));
+      const detail = card.querySelector(".book-detail");
+      fillBookDetail(detail, book, payload.detail || { months: [] }, { bind: false });
+      paintDetailMonthHeads(detail, book);
+      layoutMergePreview(host);
+      watchMergePreviewSize(host);
+      requestAnimationFrame(() => {
+        const live = document.getElementById("mergePreview");
+        if (live === host) layoutMergePreview(live);
+      });
+    }
+    function mergePreviewBookFromCache(id) {
+      const key = String(id || "");
+      if (!key) return null;
+      const lists = [];
+      if (bookData && bookData.books) lists.push(bookData.books);
+      if (typeof bookDataWarm !== "undefined" && bookDataWarm && bookDataWarm.books) lists.push(bookDataWarm.books);
+      for (let i = 0; i < lists.length; i++) {
+        const found = lists[i].find((b) => String(b.id) === key);
+        if (found) return found;
+      }
+      return null;
+    }
+    function loadMergePreviewBook(id) {
+      const cached = mergePreviewBookFromCache(id);
+      if (cached) return Promise.resolve(cached);
+      return api("/api/books").then((data) => {
+        const books = (data && data.books) || [];
+        return books.find((b) => String(b.id) === String(id)) || null;
+      });
+    }
+    function paintMergeSidePreview(bookId, gen) {
+      const host = document.getElementById("mergePreview");
+      Promise.all([
+        loadMergePreviewBook(bookId),
+        api("/api/books/detail?id=" + encodeURIComponent(bookId))
+      ]).then((pair) => {
+        if (gen !== mergePreviewGen) return;
+        const live = mergePreviewSelection();
+        if (mergePreviewMode === "from" && live.fromId !== String(bookId)) return;
+        if (mergePreviewMode === "to" && live.toId !== String(bookId)) return;
+        const book = pair[0];
+        const detail = pair[1];
+        if (!book) {
+          renderMergePreviewHint("找不到这本书");
+          return;
+        }
+        renderMergePreviewCard({ book: book, detail: detail || { months: [] } });
+      }).catch((e) => {
+        if (gen !== mergePreviewGen) return;
+        if (host) host.innerHTML = '<p class="log-merge-empty">' + escapeHtml(e.message || "预览失败") + "</p>";
+      });
+    }
+    function scheduleMergePreview() {
+      syncMergePreviewModes();
+      const host = document.getElementById("mergePreview");
+      const sel = mergePreviewSelection();
+      const mode = mergePreviewMode;
+      const gen = ++mergePreviewGen;
+      if (mode === "from") {
+        if (!sel.fromId) {
+          renderMergePreviewHint("先选择迁出的书");
+          return;
+        }
+        paintMergeSidePreview(sel.fromId, gen);
+        return;
+      }
+      if (mode === "to") {
+        if (!sel.toId) {
+          renderMergePreviewHint("先选择迁入的书");
+          return;
+        }
+        paintMergeSidePreview(sel.toId, gen);
+        return;
+      }
+      if (!sel.fromId || !sel.toId) {
+        renderMergePreviewHint("先选择两本不同的书");
+        return;
+      }
+      if (sel.same) {
+        renderMergePreviewHint("两本书必须不同");
+        return;
+      }
+      api("/api/books/merge-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: sel.fromId, to: sel.toId })
+      }).then((payload) => {
+        if (gen !== mergePreviewGen) return;
+        if (mergePreviewMode !== "merged") return;
+        const live = mergePreviewSelection();
+        if (live.fromId !== sel.fromId || live.toId !== sel.toId || !live.ready) return;
+        renderMergePreviewCard(payload);
+      }).catch((e) => {
+        if (gen !== mergePreviewGen) return;
+        if (host) host.innerHTML = '<p class="log-merge-empty">' + escapeHtml(e.message || "预览失败") + "</p>";
+      });
+    }
+    function syncMergeButton() {
+      const fromSel = document.getElementById("mergeFrom");
+      const toSel = document.getElementById("mergeTo");
+      const note = document.getElementById("mergeNote");
+      const btn = document.getElementById("mergeBooksBtn");
+      if (!fromSel || !toSel || !btn) return;
+      const same = !fromSel.disabled && fromSel.value && fromSel.value === toSel.value;
+      btn.disabled = fromSel.disabled || !fromSel.value || !toSel.value || !!same;
+      if (note) note.textContent = same ? "两本书必须不同" : "";
+    }
+    function paintMergeControls() {
+      const fromSel = document.getElementById("mergeFrom");
+      const toSel = document.getElementById("mergeTo");
+      if (!fromSel || !toSel) return;
+      const books = mergeCandidateBooks();
+      const saved = loadMergeChoice();
+      const fromSide = mergeSidePick(books, fromSel.value, saved.from);
+      const toSide = mergeSidePick(books, toSel.value, saved.to);
+      if (books.length < 2) {
+        fromSel.disabled = true;
+        toSel.disabled = true;
+        const fromId = fromSide.keep ? fromSide.id : ((books[0] && books[0].id) || "");
+        const toId = toSide.keep ? toSide.id : ((books[0] && books[0].id) || "");
+        fromSel.innerHTML = mergeOptionHtml(books, fromId);
+        toSel.innerHTML = mergeOptionHtml(books, toId);
+        fromSel.value = fromId == null ? "" : String(fromId);
+        toSel.value = toId == null ? "" : String(toId);
+        syncMergeButton();
+        scheduleMergePreview();
+        return;
+      }
+      fromSel.disabled = false;
+      toSel.disabled = false;
+      const fromId = fromSide.keep ? fromSide.id : books[0].id;
+      let toId = toSide.id;
+      if (!toSide.keep) {
+        const other = books.find((b) => String(b.id) !== String(fromId));
+        toId = other ? other.id : books[0].id;
+      }
+      fromSel.innerHTML = mergeOptionHtml(books, fromId);
+      toSel.innerHTML = mergeOptionHtml(books, toId);
+      fromSel.value = fromId == null ? "" : String(fromId);
+      toSel.value = toId == null ? "" : String(toId);
+      syncMergeButton();
+      scheduleMergePreview();
     }
     async function loadReadingLog() {
       readingLog = await api("/api/reading-log");
@@ -22503,6 +23393,59 @@
       loadReadingLog().catch((e) => showErr(e.message));
     };
     document.getElementById("closeLog").onclick = closeLogPanel;
+    const mergeFromSel = document.getElementById("mergeFrom");
+    const mergeToSel = document.getElementById("mergeTo");
+    if (mergeFromSel) mergeFromSel.addEventListener("change", () => { persistMergeChoice(); syncMergeButton(); scheduleMergePreview(); });
+    if (mergeToSel) mergeToSel.addEventListener("change", () => { persistMergeChoice(); syncMergeButton(); scheduleMergePreview(); });
+    const mergePreviewEl = document.getElementById("mergePreview");
+    if (mergePreviewEl) mergePreviewEl.addEventListener("wheel", (ev) => {
+      if (!ev.altKey) return;
+      ev.preventDefault();
+      const dy = ev.deltaY || ev.deltaX || 0;
+      if (!dy) return;
+      const unit = ev.deltaMode === 0 ? 100 : 1;
+      mergePreviewZoomWheel += dy;
+      const notches = Math.trunc(mergePreviewZoomWheel / unit);
+      if (!notches) return;
+      mergePreviewZoomWheel -= notches * unit;
+      const next = clampMergeZoom(mergePreviewZoomPct - notches * MERGE_ZOOM_STEP);
+      if (next === mergePreviewZoomPct) {
+        mergePreviewZoomWheel = 0;
+        return;
+      }
+      mergePreviewZoomPct = next;
+      persistMergeZoom(next);
+      fitMergePreviewScale(mergePreviewEl);
+    }, { passive: false });
+    const mergePreviewModes = document.getElementById("mergePreviewModes");
+    if (mergePreviewModes) mergePreviewModes.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-merge-preview]");
+      if (!btn || btn.disabled) return;
+      const mode = btn.getAttribute("data-merge-preview");
+      if (!mode || mode === mergePreviewMode) return;
+      mergePreviewMode = mode;
+      scheduleMergePreview();
+    });
+    const mergeBooksBtn = document.getElementById("mergeBooksBtn");
+    if (mergeBooksBtn) mergeBooksBtn.onclick = async () => {
+      const fromSel = document.getElementById("mergeFrom");
+      const toSel = document.getElementById("mergeTo");
+      if (!fromSel || !toSel || fromSel.disabled || !fromSel.value || fromSel.value === toSel.value) return;
+      showErr("");
+      mergeBooksBtn.disabled = true;
+      try {
+        await api("/api/books/merge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ from: fromSel.value, to: toSel.value })
+        });
+        await loadReadingLog();
+        await refresh(false);
+      } catch (e) {
+        showErr(e.message || "合并失败");
+        syncMergeButton();
+      }
+    };
     document.getElementById("logList").addEventListener("click", (ev) => {
       const cancel = ev.target.closest(".log-edit-cancel");
       if (cancel) {

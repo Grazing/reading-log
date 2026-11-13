@@ -36,7 +36,22 @@ STATIC = ROOT / "static"
 HOST = "127.0.0.1"
 # Phone on the same Wi-Fi reaches the Mac. Localhost checks still use HOST.
 BIND_HOST = os.environ.get("READING_LOG_BIND", "0.0.0.0")
-PORT = 18766
+
+
+def _port_from_env() -> int:
+    raw = os.environ.get("READING_LOG_PORT", "").strip()
+    if not raw:
+        return 18766
+    try:
+        port = int(raw)
+    except ValueError:
+        sys.exit("READING_LOG_PORT 无效：%s" % raw)
+    if not 1 <= port <= 65535:
+        sys.exit("READING_LOG_PORT 无效：%s" % raw)
+    return port
+
+
+PORT = _port_from_env()
 TZ = timezone(timedelta(hours=8))
 COVER_CACHE: dict[str, tuple[bytes, str]] = {}
 COVER_CACHE_MAX = 80
@@ -662,7 +677,7 @@ class Handler(BaseHTTPRequestHandler):
                 now = datetime.now(TZ)
                 year = int(body.get("year") or now.year)
                 month = int(body.get("month") or now.month)
-                self._json(200, sync.sync_weread(year, month))
+                self._json(200, sync.sync_weread(year, month, body.get("scope")))
                 return
             if parsed.path == "/api/sync/ireader":
                 self._json(200, sync.sync_ireader())
@@ -849,6 +864,18 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(400, {"error": result.get("error") or "同步失败"})
                     return
                 self._json(200, result)
+                return
+            if parsed.path == "/api/books/merge-preview":
+                self._json(200, store.preview_book_merge(
+                    str(body.get("from") or body.get("fromId") or ""),
+                    str(body.get("to") or body.get("toId") or ""),
+                ))
+                return
+            if parsed.path == "/api/books/merge":
+                self._json(200, store.merge_book_reading(
+                    str(body.get("from") or body.get("fromId") or ""),
+                    str(body.get("to") or body.get("toId") or ""),
+                ))
                 return
             if parsed.path == "/api/entries/delete":
                 store.delete_entry(str(body.get("id") or ""), str(body.get("date") or ""))
@@ -2000,6 +2027,14 @@ def skip_browser() -> bool:
     return owned_by_mac_app() or os.environ.get("READING_LOG_NO_BROWSER") == "1"
 
 
+def separate_data_or_port() -> bool:
+    """A second instance must not be handed to start.command, which drops these."""
+    return bool(
+        os.environ.get("READING_LOG_DATA", "").strip()
+        or os.environ.get("READING_LOG_PORT", "").strip()
+    )
+
+
 def existing_app_alive() -> bool:
     try:
         with urlopen(app_url() + "api/status", timeout=1) as resp:
@@ -2064,7 +2099,7 @@ def main():
         if not skip_browser():
             webbrowser.open(url)
         return
-    if not owned and launched_under_cursor():
+    if not owned and not separate_data_or_port() and launched_under_cursor():
         handoff_to_terminal()
         return
     server = bind_http_server()

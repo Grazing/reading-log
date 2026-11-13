@@ -16,9 +16,23 @@ from urllib.parse import quote, urlencode
 from urllib.request import ProxyHandler, Request, build_opener, getproxies
 
 TZ = timezone(timedelta(hours=8))
-DATA_DIR = Path.home() / ".reading-log"
+
+
+def _reading_log_data_dir() -> Path:
+    """Same rule as store.DATA_DIR: READING_LOG_DATA overrides ~/.reading-log."""
+    raw = os.environ.get("READING_LOG_DATA", "").strip()
+    if not raw:
+        return Path.home() / ".reading-log"
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path
+
+
+DATA_DIR = _reading_log_data_dir()
 SESSION_PATH = DATA_DIR / "session.json"
 LEGACY_SESSION = Path.home() / ".weread-calendar" / "session.json"
+_DEFAULT_DATA_DIR = Path.home() / ".reading-log"
 WEB_ORIGIN = "https://weread.qq.com"
 API_ORIGIN = "https://i.weread.qq.com"
 BROWSER_UA = (
@@ -99,7 +113,9 @@ def _merge_set_cookie(cookies: dict, headers) -> None:
 
 
 def load_session() -> dict:
-    if not SESSION_PATH.exists() and LEGACY_SESSION.exists():
+    # Only the original folder inherits an old ~/.weread-calendar session.
+    # A separate READING_LOG_DATA must stay empty until that account logs in.
+    if DATA_DIR == _DEFAULT_DATA_DIR and not SESSION_PATH.exists() and LEGACY_SESSION.exists():
         try:
             DATA_DIR.mkdir(parents=True, exist_ok=True)
             SESSION_PATH.write_bytes(LEGACY_SESSION.read_bytes())

@@ -79,15 +79,25 @@ def _refresh_merged_last_opens(shelf: list) -> None:
                 store.set_last_open_if_newer(book_id, ts)
 
 
-def _apply_book_merges(shelf: list | None = None) -> int:
+def _apply_book_merges(shelf: list | None = None, only: set[str] | None = None) -> int:
     """Fold alias edition dailies into each canonical book (day union, same-day sum).
 
     The canonical last_open becomes the latest open among the canonical volume
     and every merged member that still has a last_open. Each volume's finish
     date stays on that volume. An unfinished series canonical is not given a
     finish date, so 读完日期 sort keeps treating the series as in progress.
+
+    ``only`` limits the fold to merge groups that intersect that id set (recent
+    sync). None keeps every group, which is the full-sync path.
     """
     merges = store.ensure_book_merges()
+    if only is not None:
+        wanted = {str(item) for item in only if item}
+        merges = {
+            canon: aliases
+            for canon, aliases in merges.items()
+            if {canon, *aliases} & wanted
+        }
     _refresh_merged_last_opens(shelf or [])
     wrote = 0
     for canonical, aliases in merges.items():
@@ -115,7 +125,7 @@ def _apply_book_merges(shelf: list | None = None) -> int:
         # Keep alias rows out of the calendar (canonical already has the fold).
         for alias in aliases:
             store.replace_book_days(alias, "weread", [])
-    _apply_book_series()
+    _apply_book_series(only)
     return wrote
 
 
@@ -141,7 +151,7 @@ def _volume_read(book_id: str) -> tuple[int, int] | None:
     return words, max(0, min(100, progress))
 
 
-def _apply_book_series() -> None:
+def _apply_book_series(only: set[str] | None = None) -> None:
     """Word count = sum of members. Progress = words read / that total.
 
     progressLead (杨可意/磨铁) is an early parallel edition. While any lead volume
@@ -150,8 +160,13 @@ def _apply_book_series() -> None:
     @100% and 部4 @≥86%), then add later volumes by their actual WeRead %.
     Reading time is folded separately by the merge.
     """
+    wanted = {str(item) for item in only if item} if only is not None else None
     for canonical, spec in store.book_series().items():
         members = spec.get("members") or []
+        if wanted is not None:
+            leads = list(spec.get("progressLead") or [])
+            if not ({str(canonical), *map(str, members), *map(str, leads)} & wanted):
+                continue
         volumes: list[tuple[int, int]] = []
         complete = True
         for book_id in members:
@@ -198,7 +213,83 @@ def _apply_book_series() -> None:
         store.set_series_book_stats(canonical, spec.get("title") or "", total_words, pct)
 
 
-def sync_weread(year: int | None = None, month: int | None = None) -> dict:
+# Recent shelf width. Full sync is not sliced; only a resolved "recent" scope is.
+RECENT_SHELF_LIMIT = 50
+
+
+def weread_sync_established(sync_at: int, has_weread_books: bool) -> bool:
+    """This data directory has completed a WeRead sync.
+
+    Uses the existing wereadSyncAt timestamp. A timestamp with no local WeRead
+    books is still an empty library, so automatic sync stays on the full path.
+    """
+    try:
+        stamp = int(sync_at or 0)
+    except (TypeError, ValueError):
+        stamp = 0
+    return stamp > 0 and bool(has_weread_books)
+
+
+def _weread_auto_synced() -> bool:
+    stamp = store.weread_sync_at()
+    has_books = False
+    if stamp > 0:
+        with store.connect() as conn:
+            has_books = (
+                conn.execute(
+                    "SELECT 1 FROM books WHERE id LIKE 'weread:%' LIMIT 1"
+                ).fetchone()
+                is not None
+            )
+    return weread_sync_established(stamp, has_books)
+
+
+def resolve_weread_scope(requested: str | None, *, synced: bool) -> str:
+    """Return ``full`` or ``recent``.
+
+    ``full`` is「全部同步」 and always keeps the whole shelf.
+    ``recent`` is「同步最近」 and always slices, including the first sync.
+    Anything else (``auto``, omitted) is an automatic sync: full until this
+    data directory has a successful sync, then the same recent slice.
+    The ``synced`` flag is computed on the server; callers cannot supply it.
+    """
+    mode = str(requested or "").strip().lower()
+    if mode == "full":
+        return "full"
+    if mode == "recent":
+        return "recent"
+    if not synced:
+        return "full"
+    return "recent"
+
+
+def shelf_slice_for_scope(books: list, scope: str) -> list:
+    """Keep shelf order (readUpdateTime descending). Slice only for recent."""
+    rows = list(books or [])
+    if scope != "recent":
+        return rows
+    return rows[:RECENT_SHELF_LIMIT]
+
+
+def pulls_off_shelf(scope: str) -> bool:
+    """Notes, annual ranks, and the local off-shelf scan belong to a full sync."""
+    return scope != "recent"
+
+
+def _merge_group_in_scope(book_id: str, only: set[str]) -> bool:
+    book_id = str(book_id or "")
+    if not book_id:
+        return False
+    if book_id in only:
+        return True
+    for canon, aliases in store.book_merges().items():
+        group = {canon, *aliases}
+        if book_id in group and group & only:
+            return True
+    return False
+
+
+def sync_weread(year: int | None = None, month: int | None = None, scope: str | None = None) -> dict:
     if not _weread_sync_guard.acquire(blocking=False):
         return {
             "ok": True,
@@ -207,12 +298,12 @@ def sync_weread(year: int | None = None, month: int | None = None) -> dict:
             "wereadSyncAt": store.weread_sync_at(),
         }
     try:
-        return _sync_weread(year, month)
+        return _sync_weread(year, month, scope)
     finally:
         _weread_sync_guard.release()
 
 
-def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
+def _sync_weread(year: int | None = None, month: int | None = None, scope: str | None = None) -> dict:
     if not weread.has_session() and not weread.load_api_key():
         return {"ok": False, "error": "尚未登录微信读书"}
     try:
@@ -228,22 +319,28 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
     merge_aliases = store.merge_alias_ids()
     merge_canonicals = set(store.book_merges().keys())
 
-    # Whole shelf, newest first. Aliases and hidden books are skipped below.
+    # Shelf stays readUpdateTime descending. Full keeps every row plus off-shelf
+    # sources. Recent keeps the first RECENT_SHELF_LIMIT and does not go looking
+    # for books outside that slice.
+    scope = resolve_weread_scope(scope, synced=_weread_auto_synced())
     on_shelf = [b for b in shelf if _raw_id(b)]
-    on_ids = {_raw_id(b) for b in on_shelf}
-    seen = set(on_ids)
     off_shelf = []
-    for stub in list(weread.books_beyond_shelf(on_ids)) + _local_off_shelf(on_ids):
-        raw_id = _raw_id(stub)
-        book_id = "weread:" + raw_id
-        if not raw_id or raw_id in seen:
-            continue
-        if book_id in merge_aliases or store.is_excluded_book(book_id):
-            continue
-        if store.preserves_synced_days(book_id):
-            continue
-        seen.add(raw_id)
-        off_shelf.append(stub)
+    if pulls_off_shelf(scope):
+        on_ids = {_raw_id(b) for b in on_shelf}
+        seen = set(on_ids)
+        for stub in list(weread.books_beyond_shelf(on_ids)) + _local_off_shelf(on_ids):
+            raw_id = _raw_id(stub)
+            book_id = "weread:" + raw_id
+            if not raw_id or raw_id in seen:
+                continue
+            if book_id in merge_aliases or store.is_excluded_book(book_id):
+                continue
+            if store.preserves_synced_days(book_id):
+                continue
+            seen.add(raw_id)
+            off_shelf.append(stub)
+    else:
+        on_shelf = shelf_slice_for_scope(on_shelf, scope)
     candidates = on_shelf + off_shelf
     used = 0
     entries = 0
@@ -365,10 +462,18 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
     merged_entries = 0
     if not expired:
         try:
-            merged_entries = _apply_book_merges(shelf)
+            if scope == "recent":
+                only_ids = {"weread:" + _raw_id(b) for b in candidates if _raw_id(b)}
+                merged_entries = _apply_book_merges(on_shelf, only=only_ids)
+                if _merge_group_in_scope(_PIANO_BOOK_ID, only_ids):
+                    _apply_piano_teacher_progress()
+                heal_ids = {bid for bid in only_ids if not store.preserves_synced_days(bid)}
+                _heal_bare_hundred_progress(heal_ids)
+            else:
+                merged_entries = _apply_book_merges(shelf)
+                _apply_piano_teacher_progress()
+                _heal_bare_hundred_progress()
             entries += merged_entries
-            _apply_piano_teacher_progress()
-            _heal_bare_hundred_progress()
             # Catch any remaining shelf-only last_open bumps (incl. books skipped above).
             store.reconcile_all_last_opens_from_entries()
         except weread.SessionExpired:
@@ -386,6 +491,7 @@ def _sync_weread(year: int | None = None, month: int | None = None) -> dict:
         "candidates": len(candidates),
         "onShelf": len(on_shelf),
         "offShelf": len(off_shelf),
+        "scope": scope,
     }
     if expired and used == 0:
         result["ok"] = False
@@ -449,8 +555,12 @@ def _apply_piano_teacher_progress() -> None:
     store.set_book_progress(_PIANO_BOOK_ID, pct, custom=True)
 
 
-def _heal_bare_hundred_progress() -> None:
-    """Re-resolve WeRead books stuck at 100% with no finish date via chapter pointer."""
+def _heal_bare_hundred_progress(only: set[str] | None = None) -> None:
+    """Re-resolve WeRead books stuck at 100% with no finish date via chapter pointer.
+
+    ``only`` limits the pass to those ids (recent sync). None scans every
+    stuck WeRead book, which is the full-sync path.
+    """
     with store.connect() as conn:
         rows = conn.execute(
             """
@@ -461,9 +571,12 @@ def _heal_bare_hundred_progress() -> None:
               AND COALESCE(progress_custom, 0) = 0
             """
         ).fetchall()
+    wanted = {str(item) for item in only if item} if only is not None else None
     for row in rows:
         book_id = str(row["id"] or "")
         if not book_id or book_id == _PIANO_BOOK_ID:
+            continue
+        if wanted is not None and book_id not in wanted:
             continue
         raw_id = book_id.split(":", 1)[1].strip()
         if not raw_id:

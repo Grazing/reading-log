@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -12,7 +13,19 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request
 
-DATA_DIR = Path.home() / ".reading-log"
+
+def _reading_log_data_dir() -> Path:
+    """Same rule as store.DATA_DIR: READING_LOG_DATA overrides ~/.reading-log."""
+    raw = os.environ.get("READING_LOG_DATA", "").strip()
+    if not raw:
+        return Path.home() / ".reading-log"
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path
+
+
+DATA_DIR = _reading_log_data_dir()
 SESSION_PATH = DATA_DIR / "ireader-session.json"
 WEB_ORIGIN = "https://pc.ireader.com"
 API_ORIGIN = "https://api-pc.zhangyue.com"

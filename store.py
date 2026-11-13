@@ -8,6 +8,7 @@ import contextvars
 import csv
 import io
 import json
+import os
 import re
 import sqlite3
 import struct
@@ -24,7 +25,19 @@ try:
 except ImportError:  # optional; fallback keeps API usable without the package
     lazy_pinyin = None
 
-DATA_DIR = Path.home() / ".reading-log"
+
+def _reading_log_data_dir() -> Path:
+    """Default ~/.reading-log. READING_LOG_DATA points a second instance elsewhere."""
+    raw = os.environ.get("READING_LOG_DATA", "").strip()
+    if not raw:
+        return Path.home() / ".reading-log"
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path
+
+
+DATA_DIR = _reading_log_data_dir()
 DB_PATH = DATA_DIR / "reading.db"
 COVERS_DIR = DATA_DIR / "covers"
 COVER_FILE_RE = re.compile(r"^[A-Za-z0-9._-]+\.png$")
@@ -2215,7 +2228,7 @@ def _png_pixel_size(data: bytes) -> tuple[int, int] | None:
 
 
 def save_custom_cover_png(book_id: str, png_bytes: bytes) -> dict:
-    """Persist a cropped PNG under ~/.reading-log/covers and point books.cover at it."""
+    """Persist a cropped PNG under DATA_DIR/covers and point books.cover at it."""
     if not book_id:
         raise ValueError("找不到这本书")
     data = bytes(png_bytes or b"")
@@ -2368,8 +2381,10 @@ def set_book_visibility(body) -> dict[str, dict]:
     return current
 
 
-# Canonical ← aliases. Aliases stay excluded from the UI; their daily seconds are
-# folded into the canonical book on each WeRead sync (day-set union; same-day sum).
+# Canonical ← aliases. Daily seconds fold into the canonical book on each WeRead
+# sync (day-set union; same-day sum). Built-in series aliases stay off the shelf
+# list. A user merge keeps the source row and its visibility flags; sync still
+# folds that source into the canonical and does not write the days back onto it.
 # WeRead only exposes per-day totals (no session start/end), so same-day “interval
 # union” is approximated by summing edition totals (equals true union when the
 # reading blocks do not overlap).
@@ -2451,21 +2466,415 @@ def book_merges() -> dict[str, list[str]]:
 
 
 def ensure_book_merges() -> dict[str, list[str]]:
-    """Persist merges (including new defaults) and exclude aliases so they stay hidden."""
+    """Persist merges (including new defaults).
+
+    Built-in series aliases are excluded so those volumes stay off the shelf list.
+    A book merged by the user is not excluded and its bookVisibility is not changed.
+    An alias the user has already attached to another canonical is left there.
+    A default canonical that was itself merged away is not recreated.
+    """
     merges = book_merges()
     changed = not get_setting("bookMerges", "")
+    claimed: set[str] = set()
+    for aliases in merges.values():
+        for alias in aliases:
+            claimed.add(alias)
     for canon, aliases in _DEFAULT_BOOK_MERGES.items():
+        if canon in claimed:
+            continue
         cur = merges.setdefault(canon, [])
         for alias in aliases:
-            if alias != canon and alias not in cur:
-                cur.append(alias)
-                changed = True
+            if alias == canon or alias in cur or alias in claimed:
+                continue
+            cur.append(alias)
+            claimed.add(alias)
+            changed = True
     if changed:
         set_setting("bookMerges", json.dumps(merges, ensure_ascii=False))
+    # Built-in series aliases stay out of the shelf list. A book the user merged
+    # is not added here: merge must not hide it, and must not clear a hide the
+    # user already set. Ids already in excludedBooks are left there.
+    default_aliases: set[str] = set()
+    for aliases in _DEFAULT_BOOK_MERGES.values():
+        for alias in aliases:
+            s = str(alias or "").strip()
+            if s:
+                default_aliases.add(s)
     for canon, aliases in merges.items():
         for alias in aliases:
-            exclude_book(alias)
+            if alias in default_aliases:
+                exclude_book(alias)
     return merges
+
+
+def _entry_dict(row) -> dict:
+    if isinstance(row, dict):
+        day = str(row.get("day") or "")[:10]
+        source = str(row.get("source") or "")
+        seconds = int(row.get("seconds") or 0)
+        try:
+            custom = int(row.get("seconds_custom") or 0)
+        except (TypeError, ValueError):
+            custom = 0
+    else:
+        day = str(row["day"] or "")[:10]
+        source = str(row["source"] or "")
+        seconds = int(row["seconds"] or 0)
+        try:
+            custom = int(row["seconds_custom"] or 0)
+        except (KeyError, IndexError, TypeError, ValueError):
+            custom = 0
+    return {
+        "day": day,
+        "source": source or "weread",
+        "seconds": seconds,
+        "seconds_custom": 1 if custom == 1 else 0,
+    }
+
+
+def _entry_is_hand(entry: dict | None) -> bool:
+    """Hand edit: seconds_custom, or a manual row (same rule as sync)."""
+    if not entry:
+        return False
+    if int(entry.get("seconds_custom") or 0) == 1:
+        return True
+    return str(entry.get("source") or "") == "manual"
+
+
+def combine_reading_days(
+    src_entries: list,
+    dst_entries: list,
+    src_tombs: set[str] | list[str],
+    dst_tombs: set[str] | list[str],
+) -> tuple[list[dict], set[str]]:
+    """Move src day-rows onto dst. Returns (dst entries, tombstone days on dst).
+
+    Same source and day: non-custom seconds sum. A hand-edited side is not
+    replaced by a non-custom value. Both hand-edited: sum and keep the custom
+    flag. A tombstone wins over non-custom seconds and is never discarded.
+    """
+    src_by: dict[tuple[str, str], dict] = {}
+    dst_by: dict[tuple[str, str], dict] = {}
+    for raw in src_entries or []:
+        entry = _entry_dict(raw)
+        if entry["day"]:
+            src_by[(entry["day"], entry["source"])] = entry
+    for raw in dst_entries or []:
+        entry = _entry_dict(raw)
+        if entry["day"]:
+            dst_by[(entry["day"], entry["source"])] = entry
+    src_tomb_set = {str(day or "")[:10] for day in (src_tombs or []) if str(day or "")[:10]}
+    dst_tomb_set = {str(day or "")[:10] for day in (dst_tombs or []) if str(day or "")[:10]}
+    tombs = set(src_tomb_set) | set(dst_tomb_set)
+    days = {day for day, _source in list(src_by) + list(dst_by)} | tombs
+    out: list[dict] = []
+    for day in sorted(days):
+        sources = {
+            source
+            for d, source in list(src_by) + list(dst_by)
+            if d == day
+        }
+        tomb = day in tombs
+        for source in sorted(sources):
+            src = src_by.get((day, source))
+            dst = dst_by.get((day, source))
+            src_hand = _entry_is_hand(src)
+            dst_hand = _entry_is_hand(dst)
+            if src and dst:
+                if src_hand and dst_hand:
+                    out.append({
+                        "day": day,
+                        "source": source,
+                        "seconds": int(src["seconds"]) + int(dst["seconds"]),
+                        "seconds_custom": 1,
+                    })
+                elif src_hand:
+                    out.append({
+                        "day": day,
+                        "source": source,
+                        "seconds": int(src["seconds"]),
+                        "seconds_custom": 1,
+                    })
+                elif dst_hand:
+                    out.append({
+                        "day": day,
+                        "source": source,
+                        "seconds": int(dst["seconds"]),
+                        "seconds_custom": 1,
+                    })
+                elif tomb:
+                    continue
+                else:
+                    out.append({
+                        "day": day,
+                        "source": source,
+                        "seconds": int(src["seconds"]) + int(dst["seconds"]),
+                        "seconds_custom": 0,
+                    })
+            elif src:
+                if tomb and not src_hand:
+                    continue
+                out.append({
+                    "day": day,
+                    "source": source,
+                    "seconds": int(src["seconds"]),
+                    "seconds_custom": 1 if src_hand else 0,
+                })
+            elif dst:
+                if tomb and not dst_hand:
+                    continue
+                out.append({
+                    "day": day,
+                    "source": source,
+                    "seconds": int(dst["seconds"]),
+                    "seconds_custom": 1 if dst_hand else 0,
+                })
+    kept = [entry for entry in out if int(entry["seconds"]) > 0 and entry["day"]]
+    return kept, tombs
+
+
+def _canonical_of(book_id: str, merges: dict[str, list[str]] | None = None) -> str:
+    book_id = str(book_id or "").strip()
+    merges = book_merges() if merges is None else merges
+    for canon, aliases in merges.items():
+        if book_id in aliases:
+            return canon
+    return ""
+
+
+def register_merge_alias(canonical_id: str, alias_id: str) -> dict[str, list[str]]:
+    """Point alias_id at canonical_id using the stored bookMerges map.
+
+    If alias_id was itself a canonical, its aliases move with it.
+    Does not change bookVisibility.
+    """
+    canonical_id = str(canonical_id or "").strip()
+    alias_id = str(alias_id or "").strip()
+    if not canonical_id or not alias_id or canonical_id == alias_id:
+        raise ValueError("两本书必须不同")
+    merges = book_merges()
+    owner = _canonical_of(canonical_id, merges)
+    if owner and owner != alias_id:
+        raise ValueError("不能合并到已合并的书")
+    moved: list[str] = []
+    if alias_id in merges:
+        moved = list(merges.pop(alias_id) or [])
+    for canon, aliases in list(merges.items()):
+        if alias_id in aliases:
+            merges[canon] = [item for item in aliases if item != alias_id]
+    cur = [item for item in merges.get(canonical_id, []) if item and item != canonical_id]
+    for extra in moved:
+        extra = str(extra or "").strip()
+        if extra and extra != canonical_id and extra != alias_id and extra not in cur:
+            cur.append(extra)
+    if alias_id not in cur:
+        cur.append(alias_id)
+    merges[canonical_id] = cur
+    set_setting("bookMerges", json.dumps(merges, ensure_ascii=False))
+    return merges
+
+
+def book_is_fully_hidden(book_id: str) -> bool:
+    """True when 月历、卡片、票根 are all off (the 全部 checkbox cleared)."""
+    flags = book_visibility_map().get(str(book_id or "").strip())
+    if not flags:
+        return False
+    return (
+        not flags.get("cal", True)
+        and not flags.get("card", True)
+        and not flags.get("ticket", True)
+    )
+
+
+def hide_book_everywhere(book_id: str) -> None:
+    """Mark one book 全部隐藏. Does not delete the book row."""
+    book_id = str(book_id or "").strip()
+    if not book_id:
+        return
+    set_book_visibility({book_id: {"cal": False, "card": False, "ticket": False}})
+
+
+def _load_book_entries(conn, book_id: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT day, seconds, source, COALESCE(seconds_custom, 0) AS seconds_custom
+        FROM entries WHERE book_id = ?
+        """,
+        (book_id,),
+    ).fetchall()
+    return [_entry_dict(row) for row in rows]
+
+
+def _load_tombs(conn, book_id: str) -> set[str]:
+    rows = conn.execute(
+        "SELECT day FROM entry_tombstones WHERE book_id = ?",
+        (book_id,),
+    ).fetchall()
+    return {str(row["day"] or "")[:10] for row in rows if str(row["day"] or "")[:10]}
+
+
+def _detail_months_from_entries(entries: list[dict]) -> list[dict]:
+    threshold = min_minutes() * 60
+    acc: dict[str, int] = {}
+    for entry in entries:
+        seconds = int(entry.get("seconds") or 0)
+        day = str(entry.get("day") or "")[:10]
+        if not day or seconds < threshold:
+            continue
+        acc[day] = acc.get(day, 0) + seconds
+    months: dict[str, dict] = {}
+    for day, seconds in acc.items():
+        try:
+            parsed = date.fromisoformat(day)
+        except ValueError:
+            continue
+        key = "%04d-%02d" % (parsed.year, parsed.month)
+        bucket = months.setdefault(
+            key, {"year": parsed.year, "month": parsed.month, "seconds": 0, "days": []}
+        )
+        bucket["seconds"] += seconds
+        bucket["days"].append({"day": parsed.day, "date": day, "seconds": seconds})
+    for bucket in months.values():
+        bucket["days"].sort(key=lambda item: item["date"], reverse=True)
+    return [months[key] for key in sorted(months.keys(), reverse=True)]
+
+
+def _card_from_book_row(row, entries: list[dict]) -> dict:
+    item = dict(row)
+    threshold = min_minutes() * 60
+    seconds = 0
+    read_days: set[str] = set()
+    first_day = ""
+    last_day = ""
+    for entry in entries:
+        sec = int(entry.get("seconds") or 0)
+        day = str(entry.get("day") or "")[:10]
+        if sec > 0 and day and (not last_day or day > last_day):
+            last_day = day
+        if sec >= threshold and day:
+            seconds += sec
+            read_days.add(day)
+            if not first_day or day < first_day:
+                first_day = day
+    last_open = effective_last_open(item.get("last_open"), last_day)
+    progress = item.get("progress")
+    bar = bar_color_for(item["id"], item.get("bar_color"))
+    stored_finish = str(item.get("finish_date") or "").strip()[:10]
+    if stored_finish and len(stored_finish) < 10:
+        stored_finish = ""
+    return {
+        "id": item["id"],
+        "title": item.get("title") or "",
+        "source": item.get("source") or "",
+        "cover": _cover_for_payload(item.get("cover") or ""),
+        "progress": progress,
+        "finished": is_finished(progress),
+        "wordCount": int(item.get("word_count") or 0),
+        "author": item.get("author") or "",
+        "seconds": seconds,
+        "minutes": seconds // 60,
+        "readDays": len(read_days),
+        "firstDay": first_day or None,
+        "lastDay": last_day or None,
+        "lastOpen": last_open,
+        "lastOpened": last_open,
+        "finishDate": stored_finish or None,
+        "barColor": bar,
+        "titleColor": title_color_for(item.get("title_color"), bar),
+    }
+
+
+def _require_two_books(conn, src_id: str, dst_id: str) -> tuple:
+    src_id = str(src_id or "").strip()
+    dst_id = str(dst_id or "").strip()
+    if not src_id or not dst_id:
+        raise ValueError("请选择两本书")
+    src = conn.execute("SELECT * FROM books WHERE id = ?", (src_id,)).fetchone()
+    dst = conn.execute("SELECT * FROM books WHERE id = ?", (dst_id,)).fetchone()
+    if not src or not dst:
+        raise ValueError("找不到这本书")
+    return src, dst
+
+
+def preview_book_merge(src_id: str, dst_id: str) -> dict:
+    """Card-mode preview of dst after absorbing src. Does not write."""
+    src_id = str(src_id or "").strip()
+    dst_id = str(dst_id or "").strip()
+    with connect() as conn:
+        _src, dst = _require_two_books(conn, src_id, dst_id)
+        dst_entries = _load_book_entries(conn, dst_id)
+        if src_id == dst_id:
+            merged = dst_entries
+        else:
+            merged, _tombs = combine_reading_days(
+                _load_book_entries(conn, src_id),
+                dst_entries,
+                _load_tombs(conn, src_id),
+                _load_tombs(conn, dst_id),
+            )
+    book = _card_from_book_row(dst, merged)
+    bar = book["barColor"]
+    return {
+        "book": book,
+        "detail": {
+            "id": book["id"],
+            "title": book["title"],
+            "barColor": bar,
+            "titleColor": book["titleColor"],
+            "months": _detail_months_from_entries(merged),
+        },
+    }
+
+
+def merge_book_reading(src_id: str, dst_id: str) -> dict:
+    """Move src's reading days onto dst and alias src into dst.
+
+    dst's book row stays. src's book row stays, with no day rows.
+    月历 / 卡片 / 票根 flags are not changed: merge does not hide src and does
+    not unhide a book the user already hid.
+    """
+    src_id = str(src_id or "").strip()
+    dst_id = str(dst_id or "").strip()
+    if src_id == dst_id:
+        raise ValueError("两本书必须不同")
+    with connect() as conn:
+        _require_two_books(conn, src_id, dst_id)
+        if _canonical_of(dst_id):
+            raise ValueError("不能合并到已合并的书")
+        merged, tombs = combine_reading_days(
+            _load_book_entries(conn, src_id),
+            _load_book_entries(conn, dst_id),
+            _load_tombs(conn, src_id),
+            _load_tombs(conn, dst_id),
+        )
+        conn.execute("DELETE FROM entries WHERE book_id = ?", (dst_id,))
+        for entry in merged:
+            conn.execute(
+                """
+                INSERT INTO entries(book_id, day, seconds, source, seconds_custom)
+                VALUES(?, ?, ?, ?, ?)
+                """,
+                (
+                    dst_id,
+                    entry["day"],
+                    int(entry["seconds"]),
+                    entry["source"],
+                    1 if int(entry["seconds_custom"]) == 1 else 0,
+                ),
+            )
+        conn.execute("DELETE FROM entries WHERE book_id = ?", (src_id,))
+        for day in sorted(tombs):
+            conn.execute(
+                """
+                INSERT INTO entry_tombstones(book_id, day)
+                VALUES(?, ?)
+                ON CONFLICT(book_id, day) DO NOTHING
+                """,
+                (dst_id, day),
+            )
+    register_merge_alias(dst_id, src_id)
+    ensure_book_merges()
+    return {"ok": True, "from": src_id, "to": dst_id}
 
 
 def book_series() -> dict[str, dict]:
@@ -3554,12 +3963,20 @@ def list_reading_log() -> dict:
         books = conn.execute("SELECT id, title FROM books").fetchall()
     entries = [_entry_payload(row) for row in rows]
     entries.sort(key=lambda item: (item["date"], item["title"], item["bookId"], item["id"]))
+    vis_map = book_visibility_map()
     options = []
     for row in books:
         book_id = str(row["id"])
         if book_id in hidden:
             continue
-        options.append({"id": book_id, "title": row["title"] or ""})
+        flags = vis_map.get(book_id) or {}
+        options.append({
+            "id": book_id,
+            "title": row["title"] or "",
+            "showCal": flags.get("cal", True),
+            "showCard": flags.get("card", True),
+            "showTicket": flags.get("ticket", True),
+        })
     # First-letter / pinyin order for 记录 mode manual-add book picker (#logBook).
     _sort_book_options_by_title(options)
     return {"entries": entries, "books": options}
@@ -3850,10 +4267,17 @@ def books_payload() -> dict:
         ).fetchall()
         skip_books = short_lifetime_book_ids(conn, book_total_threshold)
     vis_map = book_visibility_map()
+    # User-merge aliases are not excluded. Their days were moved away, so the
+    # empty-stub / short-total skips would drop the row and look like a hide.
+    # Keep the row; 月历/卡片/票根 flags still decide where it shows.
+    # Built-in aliases stay in excludedBooks and are skipped above that.
+    alias_ids = merge_alias_ids()
     books = []
     for row in rows:
         item = dict(row)
-        if item.get("id") in hidden or item.get("id") in skip_books:
+        book_id = item.get("id")
+        keep_alias = book_id in alias_ids and book_id not in hidden
+        if book_id in hidden or (not keep_alias and book_id in skip_books):
             continue
         first_day = str(item.get("first_day") or "")[:10]
         if first_day and len(first_day) < 10:
@@ -3867,7 +4291,13 @@ def books_payload() -> dict:
         days = int(item.get("read_days") or 0)
         progress = item.get("progress")
         # Hide empty synced stubs; keep manually created shelf books even with no entries yet.
-        if seconds <= 0 and days <= 0 and str(item.get("source") or "") != "manual":
+        # A user-merge alias has no days of its own after the move, and still belongs on the shelf.
+        if (
+            not keep_alias
+            and seconds <= 0
+            and days <= 0
+            and str(item.get("source") or "") != "manual"
+        ):
             continue
         stored_finish = str(item.get("finish_date") or "").strip()[:10]
         if stored_finish and len(stored_finish) < 10:
